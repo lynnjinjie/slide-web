@@ -95,7 +95,8 @@ jobs:
 
           if [ -z "${CSC_LINK:-}" ]; then
             echo "::warning::No CSC_LINK secret configured. Building an unsigned macOS artifact; Gatekeeper may warn or block it."
-            unset APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_API_KEY APPLE_API_KEY_ID APPLE_API_ISSUER APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
           else
             echo "macOS code signing certificate detected; electron-builder will sign the app."
           fi
@@ -106,7 +107,13 @@ jobs:
             echo "Apple notarization credentials detected; electron-builder will notarize the app."
           fi
 
-          pnpm dist:mac
+          pnpm build
+
+          if [ -z "${CSC_LINK:-}" ]; then
+            pnpm exec electron-builder --mac --publish never --config.mac.identity=null --config.mac.notarize=false
+          else
+            pnpm exec electron-builder --mac --publish never
+          fi
 
       - name: Package Windows app
         if: matrix.platform == 'windows'

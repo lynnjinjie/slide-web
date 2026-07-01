@@ -1,0 +1,1848 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Slide Web · Tab Rail</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400;1,9..144,500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; }
+
+    :root {
+      --bg-base:        rgba(20, 18, 16, 0.78);
+      --bg-content:     rgba(14, 12, 10, 0.65);
+      --fg:             #EDE6D8;
+      --fg-dim:         #807a70;
+      --fg-dimmer:      #5a544b;
+      --hairline:       rgba(255, 240, 220, 0.075);
+      --hairline-bold:  rgba(255, 240, 220, 0.13);
+      --amber:          #E8B07A;
+      --amber-soft:     #C28E5B;
+      --amber-glow:     rgba(232, 176, 122, 0.45);
+      --hover:          rgba(255, 240, 220, 0.04);
+      --active:         rgba(255, 240, 220, 0.075);
+
+      --font-display:   'Instrument Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      --font-serif:     'Fraunces', 'Iowan Old Style', Georgia, serif;
+      --font-mono:      'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+    }
+
+    body {
+      background:
+        radial-gradient(1100px 700px at 18% 22%, #2a2520 0%, transparent 60%),
+        radial-gradient(800px 600px at 82% 78%, #1a1714 0%, transparent 60%),
+        #0c0b0a;
+      font-family: var(--font-display);
+      color: var(--fg);
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    /* Faked workspace behind the slide-over, to demo context */
+    .canvas {
+      position: absolute;
+      inset: 0;
+      padding: 88px 64px;
+      pointer-events: none;
+      user-select: none;
+      color: rgba(237, 230, 216, 0.14);
+      font-family: var(--font-serif);
+      font-size: 64px;
+      line-height: 1.05;
+      letter-spacing: -0.025em;
+      font-weight: 400;
+    }
+    .canvas em { font-style: italic; color: rgba(232, 176, 122, 0.18); }
+
+    .toggle {
+      position: fixed;
+      top: 22px; left: 24px;
+      z-index: 1000;
+      display: flex;
+      background: rgba(0,0,0,0.42);
+      border: 1px solid var(--hairline-bold);
+      border-radius: 8px;
+      overflow: hidden;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      backdrop-filter: blur(12px);
+    }
+    .toggle button {
+      appearance: none;
+      background: transparent;
+      color: var(--fg-dim);
+      border: none;
+      padding: 9px 14px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .toggle button.on {
+      color: var(--amber);
+      background: rgba(232, 176, 122, 0.08);
+    }
+
+    .caption {
+      position: fixed;
+      bottom: 22px; left: 24px;
+      max-width: 360px;
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: 13px;
+      color: var(--fg-dimmer);
+      line-height: 1.55;
+    }
+    .caption strong {
+      display: block;
+      margin-bottom: 6px;
+      font-family: var(--font-mono);
+      font-style: normal;
+      font-weight: 500;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+    }
+
+    /* The slide-over window */
+    .window {
+      position: absolute;
+      top: 0; right: 0; bottom: 0;
+      width: 420px;
+      background: var(--bg-base);
+      backdrop-filter: saturate(180%) blur(28px);
+      -webkit-backdrop-filter: saturate(180%) blur(28px);
+      border-left: 1px solid var(--hairline-bold);
+      box-shadow: -28px 0 72px -28px rgba(0,0,0,0.65);
+      display: flex;
+      overflow: hidden;
+      animation: slideIn 360ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(40px); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+
+    /* ────────── Tab rail ────────── */
+    .rail {
+      width: 56px;
+      flex-shrink: 0;
+      border-right: 1px solid var(--hairline);
+      background: rgba(0, 0, 0, 0.12);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 14px 0 12px;
+      gap: 8px;
+    }
+
+    .rail__list {
+      list-style: none;
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      width: 100%;
+      flex: 1;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    .rail__list::-webkit-scrollbar { display: none; }
+
+    .rail__item {
+      position: relative;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .rail__indicator {
+      position: absolute;
+      left: 0; top: 50%;
+      transform: translateY(-50%) scaleY(0);
+      width: 2.5px;
+      height: 18px;
+      border-radius: 0 2px 2px 0;
+      background: linear-gradient(180deg, var(--amber-soft) 0%, var(--amber) 50%, var(--amber-soft) 100%);
+      box-shadow: 0 0 8px var(--amber-glow);
+      transition: transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+    .rail__item--active .rail__indicator { transform: translateY(-50%) scaleY(1); }
+
+    .rail__button {
+      position: relative;
+      appearance: none;
+      background: transparent;
+      border: 1px solid transparent;
+      width: 40px; height: 40px;
+      border-radius: 11px;
+      padding: 0;
+      cursor: default;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--fg);
+      transition: background 180ms ease, border-color 180ms ease, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
+      animation: tabEnter 360ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+    }
+    @keyframes tabEnter {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .rail__button:hover {
+      background: var(--hover);
+      border-color: var(--hairline);
+    }
+    .rail__item--active .rail__button {
+      background: var(--active);
+      border-color: var(--hairline-bold);
+    }
+
+    .rail__favicon {
+      width: 22px; height: 22px;
+      border-radius: 5px;
+      object-fit: cover;
+      filter: saturate(0.92);
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    .rail__initial {
+      font-family: var(--font-serif);
+      font-size: 17px;
+      font-weight: 500;
+      font-style: italic;
+      letter-spacing: -0.02em;
+      color: var(--fg);
+    }
+
+    .rail__live {
+      position: absolute;
+      top: 4px; right: 4px;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 6px var(--amber-glow);
+      opacity: 0;
+      transform: scale(0.6);
+      transition: opacity 220ms ease, transform 280ms cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+    .rail__item--active .rail__live {
+      opacity: 1;
+      transform: scale(1);
+      animation: live 2400ms ease-in-out 280ms infinite;
+    }
+    @keyframes live {
+      0%, 100% { opacity: 0.55; transform: scale(0.92); }
+      50%      { opacity: 1;    transform: scale(1.06); }
+    }
+
+    /* ────────── Add button ────────── */
+    .rail__add {
+      appearance: none;
+      background: transparent;
+      border: 1px dashed var(--hairline-bold);
+      width: 40px; height: 40px;
+      border-radius: 11px;
+      color: var(--fg-dim);
+      cursor: default;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+      margin-top: 6px;
+      transition: color 180ms ease, border-color 180ms ease, background 180ms ease, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
+    }
+    .rail__add:hover {
+      color: var(--amber);
+      border-color: var(--amber);
+      background: rgba(232, 176, 122, 0.05);
+    }
+    .rail__add--attention { animation: attention 2400ms ease-in-out 700ms infinite; }
+    @keyframes attention {
+      0%, 100% { box-shadow: 0 0 0 0   rgba(232, 176, 122, 0); }
+      50%      { box-shadow: 0 0 0 4px rgba(232, 176, 122, 0.09); }
+    }
+
+    /* ────────── Tooltip ────────── */
+    .tooltip {
+      position: absolute;
+      left: calc(100% + 14px);
+      top: 50%;
+      transform: translateY(-50%) translateX(-4px);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 7px 10px 7px 11px;
+      background: #14110E;
+      border: 1px solid var(--hairline-bold);
+      border-radius: 7px;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 120ms ease 100ms, transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1) 100ms;
+      z-index: 200;
+      box-shadow: 0 12px 28px -10px rgba(0,0,0,0.65);
+    }
+    .tooltip::before {
+      content: '';
+      position: absolute;
+      left: -4px; top: 50%;
+      transform: translateY(-50%) rotate(45deg);
+      width: 7px; height: 7px;
+      background: #14110E;
+      border-left: 1px solid var(--hairline-bold);
+      border-bottom: 1px solid var(--hairline-bold);
+    }
+    .rail__button:hover .tooltip,
+    .rail__add:hover    .tooltip { opacity: 1; transform: translateY(-50%) translateX(0); }
+
+    .tooltip__text {
+      font-family: var(--font-display);
+      font-size: 12.5px;
+      font-weight: 500;
+      letter-spacing: 0.005em;
+      color: var(--fg);
+    }
+    .tooltip__hint {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.04em;
+      color: var(--fg-dim);
+      padding: 1.5px 5px;
+      border: 1px solid var(--hairline-bold);
+      border-radius: 4px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* ────────── Content area ────────── */
+    .content {
+      flex: 1;
+      min-width: 0;
+      background: var(--bg-content);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .addr {
+      height: 28px;
+      display: flex; align-items: center;
+      padding: 0 14px;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--fg-dimmer);
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--hairline);
+      gap: 8px;
+    }
+    .addr__dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 5px var(--amber-glow);
+    }
+    .addr__host { color: var(--fg-dim); }
+    .addr__path { color: var(--fg-dimmer); }
+
+    .web {
+      flex: 1;
+      background: #FAFAF7;
+      color: #1a1815;
+      padding: 32px 28px;
+      overflow: auto;
+    }
+    .web h1 {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 30px;
+      line-height: 1.05;
+      letter-spacing: -0.025em;
+      margin: 0 0 8px;
+    }
+    .web p {
+      font-family: var(--font-display);
+      font-size: 13px;
+      color: #4a4640;
+      line-height: 1.6;
+      margin: 0 0 12px;
+    }
+    .web .marker {
+      color: #9a9286;
+      font-family: var(--font-serif);
+      font-style: italic;
+      margin-top: 28px;
+    }
+
+    /* ────────── Empty state ────────── */
+    .empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 28px;
+      background:
+        radial-gradient(420px 220px at 50% 35%, rgba(232, 176, 122, 0.045) 0%, transparent 70%),
+        var(--bg-content);
+    }
+    .empty__inner {
+      max-width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: emptyIn 540ms cubic-bezier(0.2, 0.9, 0.3, 1) both;
+    }
+    @keyframes emptyIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .empty__eyebrow {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--amber);
+    }
+    .empty__eyebrow::before {
+      content: '';
+      width: 18px; height: 1px;
+      background: var(--amber);
+    }
+    .empty__title {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 32px;
+      line-height: 1.05;
+      letter-spacing: -0.025em;
+      margin: 0;
+      color: var(--fg);
+    }
+    .empty__title .caret {
+      font-family: var(--font-mono);
+      font-style: normal;
+      color: var(--amber);
+      animation: blink 1100ms steps(1) infinite;
+      margin-left: 2px;
+    }
+    @keyframes blink {
+      0%, 49%   { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    .empty__body {
+      font-family: var(--font-display);
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--fg-dim);
+      margin: 0;
+    }
+    .empty__body .inline-plus {
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      width: 18px; height: 18px;
+      vertical-align: -4px;
+      border-radius: 5px;
+      border: 1px dashed var(--fg-dim);
+      color: var(--fg);
+      font-size: 12px;
+      margin: 0 1px;
+    }
+    .empty__hint {
+      margin-top: 6px;
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--fg-dim);
+    }
+    .empty__hint kbd {
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      min-width: 18px; height: 18px;
+      padding: 0 5px;
+      background: rgba(255, 240, 220, 0.03);
+      border: 1px solid var(--hairline-bold);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      font: inherit;
+      color: var(--fg);
+    }
+
+    /* ────────── Slide-away pill (top-right of content) ────────── */
+    .slide-away {
+      position: absolute;
+      top: 6px; right: 8px;
+      z-index: 80;
+      appearance: none;
+      background: rgba(0, 0, 0, 0.22);
+      border: 1px solid var(--hairline);
+      border-radius: 5px;
+      width: 24px; height: 18px;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--fg-dimmer);
+      cursor: default;
+      transition: color 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+    .slide-away:hover {
+      color: var(--amber);
+      border-color: var(--amber);
+      background: rgba(232, 176, 122, 0.08);
+    }
+    .slide-away .tooltip {
+      left: auto; right: calc(100% + 12px);
+      transform: translateY(-50%) translateX(4px);
+    }
+    .slide-away .tooltip::before {
+      left: auto; right: -4px;
+      border-left: none; border-bottom: none;
+      border-right: 1px solid var(--hairline-bold);
+      border-top: 1px solid var(--hairline-bold);
+    }
+    .slide-away:hover .tooltip {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+    }
+
+    /* ────────── Address bar: reload + loading sweep ────────── */
+    .addr { position: relative; }
+    .addr__reload {
+      appearance: none;
+      background: transparent; border: none; padding: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 16px; height: 16px;
+      color: var(--fg-dimmer);
+      cursor: default;
+      margin-left: auto;
+      transition: color 180ms;
+    }
+    .addr__reload:hover { color: var(--amber); }
+    .addr__reload svg { width: 11px; height: 11px; }
+    .addr__sweep {
+      position: absolute;
+      left: 0; bottom: -1px;
+      height: 1.5px;
+      width: 28%;
+      background: linear-gradient(90deg, transparent, var(--amber) 50%, transparent);
+      box-shadow: 0 0 5px var(--amber-glow);
+      transform: translateX(-100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .addr--loading .addr__sweep {
+      opacity: 1;
+      animation: loadSweep 1100ms cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes loadSweep {
+      from { transform: translateX(-100%); }
+      to   { transform: translateX(420px); }
+    }
+
+    /* ────────── Add-tab overlay (slides down from top of content) ────────── */
+    .addbar {
+      position: absolute;
+      top: 0; left: 56px; right: 0;
+      background: rgba(14, 12, 10, 0.94);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border-bottom: 1px solid var(--hairline-bold);
+      padding: 26px 22px 22px;
+      z-index: 90;
+      transform: translateY(-100%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 380ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 280ms ease;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 24px 60px -28px rgba(0,0,0,0.6);
+    }
+    .addbar[data-open="true"] {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .addbar__brand {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--amber);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .addbar__brand::before {
+      content: ''; width: 16px; height: 1px; background: var(--amber);
+    }
+    .addbar__prompt {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 22px;
+      line-height: 1.18;
+      letter-spacing: -0.018em;
+      color: var(--fg);
+      margin: 0;
+    }
+    .addbar__prompt em {
+      font-style: italic;
+      color: var(--amber);
+    }
+    .addbar__field {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: rgba(255, 240, 220, 0.04);
+      border: 1px solid var(--hairline-bold);
+      border-radius: 7px;
+      transition: border-color 220ms ease, background 220ms ease, box-shadow 280ms ease;
+    }
+    .addbar__field:focus-within {
+      border-color: var(--amber);
+      background: rgba(232, 176, 122, 0.05);
+      box-shadow: 0 0 0 3px rgba(232, 176, 122, 0.08);
+    }
+    .addbar__scheme {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--fg-dimmer);
+      letter-spacing: 0.02em;
+    }
+    .addbar__input {
+      flex: 1;
+      appearance: none;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      letter-spacing: 0.01em;
+      padding: 0;
+      min-width: 0;
+    }
+    .addbar__input::placeholder {
+      color: var(--fg-dimmer);
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: 13px;
+      letter-spacing: 0;
+    }
+    .addbar__enter {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--fg-dim);
+      padding: 2px 6px;
+      border: 1px solid var(--hairline-bold);
+      border-radius: 4px;
+      background: rgba(255,255,255,0.02);
+      flex-shrink: 0;
+    }
+    .addbar__row {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .addbar__row-label {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--fg-dimmer);
+    }
+    .addbar__suggestions {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+    .addbar__suggest {
+      appearance: none;
+      background: transparent;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      padding: 11px 6px 9px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      cursor: default;
+      color: var(--fg-dim);
+      transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+    }
+    .addbar__suggest:hover {
+      background: var(--hover);
+      border-color: var(--hairline-bold);
+      color: var(--fg);
+    }
+    .addbar__suggest img {
+      width: 22px; height: 22px;
+      border-radius: 5px;
+      filter: saturate(0.92);
+    }
+    .addbar__suggest span {
+      font-family: var(--font-display);
+      font-size: 11px;
+      letter-spacing: 0.01em;
+    }
+
+    /* ────────── Slide-away window animation ────────── */
+    .window {
+      transition: transform 340ms cubic-bezier(0.4, 0, 0.2, 1), opacity 280ms ease;
+    }
+    .window--away {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    .away-hint {
+      position: fixed;
+      top: 50%; right: 18px;
+      transform: translateY(-50%) translateX(8px);
+      writing-mode: vertical-rl;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--amber);
+      padding: 16px 9px;
+      border: 1px solid var(--hairline-bold);
+      border-radius: 6px;
+      background: rgba(20, 18, 16, 0.78);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      cursor: default;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 240ms ease 80ms, transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1) 80ms;
+      z-index: 999;
+    }
+    body.is-away .away-hint {
+      opacity: 1;
+      transform: translateY(-50%) translateX(0);
+      pointer-events: auto;
+    }
+    .away-hint:hover {
+      color: var(--fg);
+      border-color: var(--amber);
+    }
+
+    /* ────────── Add-tab: smart input (URL / search) ────────── */
+    .addbar__row-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .addbar__engine {
+      display: flex;
+      background: rgba(255, 240, 220, 0.03);
+      border: 1px solid var(--hairline-bold);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .addbar__engine[hidden] { display: none; }
+    .addbar__engine button {
+      appearance: none;
+      background: transparent;
+      border: none;
+      padding: 3px 9px;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--fg-dimmer);
+      cursor: default;
+      transition: color 180ms ease, background 180ms ease;
+    }
+    .addbar__engine button.on {
+      color: var(--amber);
+      background: rgba(232, 176, 122, 0.08);
+    }
+    .addbar__engine button:hover:not(.on) { color: var(--fg-dim); }
+
+    .addbar__scheme { transition: opacity 220ms ease, color 220ms ease; }
+    .addbar__field.is-query .addbar__scheme {
+      opacity: 0.32;
+      color: var(--fg-dimmer);
+    }
+
+    /* Search results list */
+    .addbar__results {
+      display: flex; flex-direction: column;
+      gap: 2px;
+      max-height: 260px;
+      overflow-y: auto;
+      margin: -4px;
+      padding: 4px;
+    }
+    .addbar__results::-webkit-scrollbar { width: 4px; }
+    .addbar__results::-webkit-scrollbar-thumb {
+      background: var(--hairline-bold); border-radius: 2px;
+    }
+    .addbar__result {
+      appearance: none;
+      background: transparent;
+      border: none;
+      padding: 8px;
+      border-radius: 6px;
+      display: flex; align-items: flex-start; gap: 10px;
+      cursor: default;
+      text-align: left;
+      transition: background 140ms ease;
+      color: var(--fg);
+      width: 100%;
+    }
+    .addbar__result:hover { background: rgba(232, 176, 122, 0.06); }
+    .addbar__result-fav {
+      flex-shrink: 0;
+      width: 18px; height: 18px;
+      border-radius: 4px;
+      margin-top: 1px;
+      background-size: cover;
+      background-position: center;
+      background-color: rgba(255, 240, 220, 0.05);
+    }
+    .addbar__result-body {
+      display: flex; flex-direction: column;
+      gap: 2px;
+      min-width: 0; flex: 1;
+    }
+    .addbar__result-title {
+      font-family: var(--font-display);
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--fg);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .addbar__result-host {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--fg-dimmer);
+      letter-spacing: 0.02em;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .addbar__result-pin {
+      flex-shrink: 0;
+      opacity: 0;
+      transform: translateX(-6px);
+      transition: opacity 160ms ease, transform 220ms cubic-bezier(0.2, 0.9, 0.3, 1);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--amber);
+      align-self: center;
+      padding-right: 2px;
+    }
+    .addbar__result:hover .addbar__result-pin {
+      opacity: 1; transform: translateX(0);
+    }
+
+    /* URL preview card */
+    .addbar__url-preview {
+      appearance: none;
+      width: 100%;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: rgba(232, 176, 122, 0.04);
+      cursor: default;
+      text-align: left;
+      color: var(--fg);
+      transition: border-color 180ms ease, background 180ms ease;
+    }
+    .addbar__url-preview:hover {
+      border-color: var(--amber);
+      background: rgba(232, 176, 122, 0.07);
+    }
+    .addbar__url-preview img {
+      width: 22px; height: 22px;
+      border-radius: 5px;
+    }
+    .addbar__url-preview-body {
+      display: flex; flex-direction: column; gap: 2px;
+      min-width: 0; flex: 1;
+    }
+    .addbar__url-preview-title {
+      font-family: var(--font-display);
+      font-size: 13px;
+      color: var(--fg);
+      font-weight: 500;
+    }
+    .addbar__url-preview-host {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--fg-dim);
+      letter-spacing: 0.02em;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .addbar__url-preview .addbar__result-pin {
+      opacity: 1; transform: none;
+    }
+
+    /* ────────── In-content search view (mimics real engine page) ────────── */
+    .search-view {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #fafaf7;
+      color: #1a1815;
+      overflow: hidden;
+      min-width: 0;
+    }
+    .search-chrome {
+      display: flex; align-items: center;
+      gap: 10px;
+      padding: 7px 12px 7px 38px; /* leave room for slide-away pill */
+      border-bottom: 1px solid #ebe6da;
+      background: #fff;
+      flex-shrink: 0;
+    }
+    .search-back {
+      appearance: none;
+      background: transparent;
+      border: 1px solid #e2dcc8;
+      border-radius: 5px;
+      width: 22px; height: 22px;
+      display: flex; align-items: center; justify-content: center;
+      color: #6f6960;
+      cursor: default;
+      flex-shrink: 0;
+      transition: color 180ms, border-color 180ms, background 180ms;
+    }
+    .search-back:hover {
+      color: #b67e44;
+      border-color: #b67e44;
+      background: #fdf6eb;
+    }
+    .search-bar {
+      flex: 1;
+      display: flex; align-items: center; gap: 8px;
+      padding: 5px 10px;
+      background: #f3eee1;
+      border-radius: 5px;
+      border: 1px solid #e2dcc8;
+      min-width: 0;
+    }
+    .search-bar-engine {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #b67e44;
+      flex-shrink: 0;
+    }
+    .search-bar-q {
+      font-family: var(--font-display);
+      font-size: 12px;
+      color: #1a1815;
+      flex: 1;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .search-body {
+      flex: 1; overflow-y: auto;
+      padding: 14px 18px 28px;
+    }
+    .search-meta {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: #7a7164;
+      margin-bottom: 16px;
+      letter-spacing: 0.02em;
+    }
+    .search-result {
+      display: flex; flex-direction: column;
+      gap: 4px;
+      padding: 6px 0 10px;
+      margin-bottom: 14px;
+      cursor: default;
+      position: relative;
+    }
+    .search-result:hover .search-result-title { text-decoration: underline; }
+    .search-result-meta {
+      display: flex; align-items: center; gap: 6px;
+      font-family: var(--font-display);
+      font-size: 10.5px;
+      color: #62594d;
+    }
+    .search-result-meta img {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+    }
+    .search-result-host { font-weight: 500; color: #2c2724; }
+    .search-result-path { color: #7a7164; }
+    .search-result-title {
+      font-family: var(--font-display);
+      font-size: 16px;
+      font-weight: 500;
+      color: #1a55b8;
+      line-height: 1.25;
+    }
+    .search-result-snippet {
+      font-family: var(--font-display);
+      font-size: 12px;
+      line-height: 1.5;
+      color: #4a4640;
+    }
+    /* "Opened here" state — search-chrome with the visited URL */
+    .search-opened {
+      flex: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px;
+      gap: 12px;
+      color: #6f6960;
+      font-family: var(--font-display);
+      font-size: 12px;
+      text-align: center;
+    }
+    .search-opened-host {
+      font-family: var(--font-mono);
+      color: #1a1815;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+    .search-opened-pin {
+      appearance: none;
+      background: transparent;
+      border: 1px solid #e2dcc8;
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: #b67e44;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      cursor: default;
+      margin-top: 4px;
+      transition: background 180ms, border-color 180ms;
+    }
+    .search-opened-pin:hover {
+      background: #fdf6eb;
+      border-color: #b67e44;
+    }
+
+    /* ────────── Preview popup (link confirmation modal) ────────── */
+    .preview-modal {
+      position: absolute;
+      inset: 0;
+      background: rgba(8, 7, 6, 0.6);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease;
+    }
+    .preview-modal[data-open="true"] {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .preview-card {
+      width: 320px;
+      background: rgba(22, 20, 18, 0.96);
+      border: 1px solid var(--hairline-bold);
+      border-radius: 13px;
+      padding: 20px 20px 16px;
+      display: flex; flex-direction: column;
+      gap: 14px;
+      transform: scale(0.96) translateY(10px);
+      opacity: 0;
+      transition: transform 320ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 240ms ease;
+      box-shadow: 0 30px 70px -18px rgba(0,0,0,0.7), 0 0 0 1px rgba(0,0,0,0.4);
+    }
+    .preview-modal[data-open="true"] .preview-card {
+      transform: scale(1) translateY(0);
+      opacity: 1;
+    }
+
+    .preview-head {
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .preview-favicon {
+      flex-shrink: 0;
+      width: 36px; height: 36px;
+      border-radius: 8px;
+      background: rgba(255, 240, 220, 0.06);
+      background-size: 22px 22px;
+      background-position: center;
+      background-repeat: no-repeat;
+      border: 1px solid var(--hairline);
+    }
+    .preview-head-text {
+      display: flex; flex-direction: column;
+      gap: 3px;
+      min-width: 0; flex: 1;
+    }
+    .preview-title {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-weight: 400;
+      font-size: 19px;
+      line-height: 1.18;
+      letter-spacing: -0.02em;
+      color: var(--fg);
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+    .preview-host {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--fg-dim);
+      letter-spacing: 0.02em;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Faked page render block */
+    .preview-render {
+      position: relative;
+      height: 110px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--hairline);
+      background:
+        radial-gradient(120% 80% at 0% 0%, rgba(232, 176, 122, 0.16) 0%, transparent 60%),
+        linear-gradient(135deg, #2a2520 0%, #1a1815 100%);
+      display: flex; flex-direction: column;
+      padding: 14px;
+      gap: 7px;
+    }
+    .preview-render .line {
+      height: 5px;
+      background: rgba(255, 240, 220, 0.16);
+      border-radius: 3px;
+    }
+    .preview-render .line.hero {
+      height: 11px;
+      width: 62%;
+      background: rgba(255, 240, 220, 0.35);
+      margin-bottom: 6px;
+    }
+    .preview-render .line.long  { width: 86%; }
+    .preview-render .line.med   { width: 64%; }
+    .preview-render .line.short { width: 42%; }
+    .preview-render .badge {
+      position: absolute;
+      top: 8px; right: 10px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--amber);
+      padding: 2px 6px;
+      border: 1px solid rgba(232, 176, 122, 0.3);
+      border-radius: 3px;
+      background: rgba(232, 176, 122, 0.06);
+    }
+
+    .preview-question {
+      font-family: var(--font-serif);
+      font-style: italic;
+      font-size: 14px;
+      line-height: 1.3;
+      color: var(--fg-dim);
+      margin: 0;
+    }
+    .preview-question em { color: var(--amber); font-style: italic; }
+
+    .preview-actions {
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .preview-btn {
+      appearance: none;
+      border: 1px solid var(--hairline-bold);
+      background: transparent;
+      color: var(--fg);
+      padding: 10px 14px;
+      border-radius: 7px;
+      font-family: var(--font-display);
+      font-size: 12.5px;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      cursor: default;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      transition: background 180ms ease, border-color 180ms ease, color 180ms ease;
+    }
+    .preview-btn:hover {
+      background: var(--hover);
+      border-color: var(--fg-dimmer);
+    }
+    .preview-btn--primary {
+      background: var(--amber);
+      color: #1a1410;
+      border-color: var(--amber);
+      font-weight: 600;
+    }
+    .preview-btn--primary:hover {
+      background: #f0bd87;
+      border-color: #f0bd87;
+    }
+    .preview-btn .kbd {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      opacity: 0.78;
+    }
+    .preview-btn--primary .kbd { color: rgba(26, 20, 16, 0.7); }
+    .preview-esc {
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--fg-dimmer);
+      padding-top: 2px;
+    }
+    .preview-esc kbd {
+      font-family: inherit;
+      padding: 1px 5px;
+      border: 1px solid var(--hairline-bold);
+      border-radius: 3px;
+      margin: 0 2px;
+      color: var(--fg-dim);
+    }
+  </style>
+</head>
+<body>
+  <div class="canvas">
+    <em>A quiet</em><br>
+    companion that<br>
+    lives <em>beside</em><br>
+    your work.
+  </div>
+
+  <div class="toggle" role="tablist">
+    <button id="btn-tabs" class="on">With tabs</button>
+    <button id="btn-empty">Empty</button>
+  </div>
+
+  <div class="caption">
+    <strong>Slide Web · design preview</strong>
+    Hover an icon for its title. <em>⌘1–5</em> to switch, <em>⌘N</em> to pin a new site,
+    <em>⌘⇧\</em> to slide the panel away — or click the ›&nbsp;pill.
+  </div>
+
+  <aside class="window" id="window">
+    <nav class="rail" aria-label="Tabs">
+      <ul class="rail__list" id="rail-list"></ul>
+      <button class="rail__add" id="rail-add" aria-label="Add tab">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+          <path d="M9 3.5v11M3.5 9h11" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+        </svg>
+        <span class="tooltip" role="tooltip">
+          <span class="tooltip__text" id="add-tooltip-text">Add tab</span>
+          <span class="tooltip__hint">⌘N</span>
+        </span>
+      </button>
+    </nav>
+
+    <section class="content" id="content"></section>
+
+    <!-- Add-tab overlay -->
+    <div class="addbar" id="addbar">
+      <span class="addbar__brand">Slide Web</span>
+      <p class="addbar__prompt">what would you like<br><em>beside</em> you?</p>
+      <div class="addbar__field">
+        <span class="addbar__scheme">https://</span>
+        <input class="addbar__input" id="addbar-input" type="text"
+               placeholder="paste a URL · or search" autocomplete="off" spellcheck="false" />
+        <kbd class="addbar__enter">↵</kbd>
+      </div>
+      <div class="addbar__row">
+        <div class="addbar__row-head">
+          <span class="addbar__row-label" id="addbar-label">Suggested</span>
+          <div class="addbar__engine" id="engine" hidden>
+            <button class="engine-btn" data-engine="google">Google</button>
+            <button class="engine-btn" data-engine="baidu">百度</button>
+          </div>
+        </div>
+        <div id="addbar-body"></div>
+      </div>
+    </div>
+
+    <!-- Slide-away pill -->
+    <button class="slide-away" id="slide-away" aria-label="Slide away">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
+        <path d="M3.5 2.5L7 5.5L3.5 8.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="tooltip" role="tooltip">
+        <span class="tooltip__text">Slide away</span>
+        <span class="tooltip__hint">⌘⇧\</span>
+      </span>
+    </button>
+
+    <!-- Preview popup — appears when user clicks a search result -->
+    <div class="preview-modal" id="preview" aria-hidden="true">
+      <div class="preview-card" id="preview-card">
+        <div class="preview-head">
+          <div class="preview-favicon" id="preview-favicon"></div>
+          <div class="preview-head-text">
+            <h3 class="preview-title" id="preview-title"></h3>
+            <span class="preview-host" id="preview-host"></span>
+          </div>
+        </div>
+        <div class="preview-render">
+          <span class="badge">Preview</span>
+          <div class="line hero"></div>
+          <div class="line long"></div>
+          <div class="line med"></div>
+          <div class="line long"></div>
+          <div class="line short"></div>
+          <div class="line med"></div>
+        </div>
+        <p class="preview-question">Keep this <em>beside</em> you?</p>
+        <div class="preview-actions">
+          <button class="preview-btn preview-btn--primary" id="preview-pin">
+            <span>Pin to sidebar</span><span class="kbd">⌘ ↵</span>
+          </button>
+          <button class="preview-btn" id="preview-open">
+            <span>Open here, don't pin</span><span class="kbd">↵</span>
+          </button>
+        </div>
+        <div class="preview-esc"><kbd>esc</kbd> to cancel</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Hint shown when window is hidden — click to bring back -->
+  <button class="away-hint" id="away-hint">Slide back · ⌘⇧\</button>
+
+  <script>
+    const TABS = [
+      { id: 'mail',   title: 'Fastmail',       host: 'fastmail.com',      path: '/mail/inbox',  kbd: '⌘1' },
+      { id: 'lin',    title: 'Linear',         host: 'linear.app',        path: '/team/eng',    kbd: '⌘2' },
+      { id: 'notion', title: 'Notion · Notes', host: 'notion.so',         path: '/jjj/notes',   kbd: '⌘3' },
+      { id: 'gpt',    title: 'ChatGPT',        host: 'chatgpt.com',       path: '/c/new',       kbd: '⌘4' },
+      { id: 'music',  title: 'YouTube Music',  host: 'music.youtube.com', path: '/library',     kbd: '⌘5' },
+    ];
+
+    let activeId = 'lin';
+    let mode = 'tabs';
+
+    const list    = document.getElementById('rail-list');
+    const add     = document.getElementById('rail-add');
+    const content = document.getElementById('content');
+
+    function renderRail() {
+      list.innerHTML = '';
+      const items = mode === 'empty' ? [] : TABS;
+      items.forEach((t, i) => {
+        const li = document.createElement('li');
+        li.className = 'rail__item';
+        li.dataset.id = t.id;
+        li.innerHTML = `
+          <span class="rail__indicator" aria-hidden></span>
+          <button class="rail__button" data-id="${t.id}" style="animation-delay:${i * 40}ms">
+            <img class="rail__favicon" src="https://www.google.com/s2/favicons?domain=${t.host}&sz=64" alt="" />
+            <span class="rail__live" aria-hidden></span>
+            <span class="tooltip" role="tooltip">
+              <span class="tooltip__text">${t.title}</span>
+              <span class="tooltip__hint">${t.kbd}</span>
+            </span>
+          </button>
+        `;
+        list.appendChild(li);
+      });
+      updateActive();
+      add.classList.toggle('rail__add--attention', mode === 'empty');
+      document.getElementById('add-tooltip-text').textContent = mode === 'empty' ? 'Pin your first site' : 'Add tab';
+    }
+
+    function updateActive() {
+      list.querySelectorAll('.rail__item').forEach(item => {
+        const isActive = item.dataset.id === activeId;
+        item.classList.toggle('rail__item--active', isActive);
+        const btn = item.querySelector('.rail__button');
+        if (isActive) btn.setAttribute('aria-current', 'true');
+        else btn.removeAttribute('aria-current');
+      });
+    }
+
+    function renderContent() {
+      if (searchSession) { renderSearchView(); return; }
+      if (mode === 'empty') {
+        content.innerHTML = `
+          <div class="empty">
+            <div class="empty__inner">
+              <span class="empty__eyebrow">Slide Web</span>
+              <h1 class="empty__title">A quiet place<br>for one more tab<span class="caret">_</span></h1>
+              <p class="empty__body">
+                Tap the <span class="inline-plus">＋</span> on the left to pin a site.
+                Anything with a URL — your inbox, a doc, a chat — lives here
+                until you slide it away.
+              </p>
+              <span class="empty__hint">
+                <kbd>⌘</kbd><kbd>N</kbd>
+                Add tab
+              </span>
+            </div>
+          </div>
+        `;
+      } else {
+        const t = TABS.find(x => x.id === activeId) || TABS[0];
+        content.innerHTML = `
+          <div class="addr" id="addr">
+            <span class="addr__dot"></span>
+            <span class="addr__host">${t.host}</span>
+            <span class="addr__path">${t.path}</span>
+            <button class="addr__reload" aria-label="Reload" id="addr-reload">
+              <svg viewBox="0 0 12 12" fill="none" aria-hidden>
+                <path d="M2.2 6a3.8 3.8 0 0 1 6.8-2.4M2.2 6V3.4M2.2 6h2.6M9.8 6a3.8 3.8 0 0 1-6.8 2.4M9.8 6v2.6M9.8 6H7.2"
+                      stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <span class="addr__sweep" aria-hidden></span>
+          </div>
+          <div class="web">
+            <h1>${t.title}</h1>
+            <p>This is where the embedded page renders. Each tab keeps its own session — cookies, login, scroll position — independent from the others.</p>
+            <p>Slide the panel away with <span style="font-family: var(--font-mono); font-size: 11px; padding: 1px 6px; border: 1px solid #d8d2c4; border-radius: 4px; background: #efe9db; color:#1a1815;">⌘⇧&#92;</span> and your work returns to focus.</p>
+            <p class="marker">— preview placeholder —</p>
+          </div>
+        `;
+      }
+    }
+
+    /* ────── Add-tab overlay (smart input: URL · Google · Baidu) ────── */
+    const SUGGESTIONS = [
+      { host: 'are.na',       title: 'Are.na' },
+      { host: 'raindrop.io',  title: 'Raindrop' },
+      { host: 'figma.com',    title: 'Figma' },
+      { host: 'tldraw.com',   title: 'Tldraw' },
+    ];
+
+    const win         = document.getElementById('window');
+    const addbar      = document.getElementById('addbar');
+    const addbarIn    = document.getElementById('addbar-input');
+    const addbarBody  = document.getElementById('addbar-body');
+    const addbarLabel = document.getElementById('addbar-label');
+    const addbarField = addbar.querySelector('.addbar__field');
+    const engineEl    = document.getElementById('engine');
+    const slideBtn    = document.getElementById('slide-away');
+    const awayHint    = document.getElementById('away-hint');
+
+    let engine = localStorage.getItem('slideweb_engine') || 'google';
+    let inputState = 'empty'; // 'empty' | 'url' | 'query'
+
+    function setEngine(e) {
+      engine = e;
+      try { localStorage.setItem('slideweb_engine', e); } catch (_) {}
+      engineEl.querySelectorAll('.engine-btn').forEach(b =>
+        b.classList.toggle('on', b.dataset.engine === engine));
+      if (inputState === 'query') renderAddbarBody();
+    }
+
+    function isUrl(s) {
+      s = s.trim();
+      if (!s || /\s/.test(s)) return false;
+      if (/^https?:\/\//i.test(s)) return true;
+      return /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)+(\/[^\s]*)?$/i.test(s);
+    }
+
+    function mockResults(query) {
+      const q = query.trim().replace(/[<>&"]/g, '');
+      const enc = encodeURIComponent(q);
+      if (engine === 'baidu') {
+        return [
+          { host: 'baike.baidu.com',  title: `${q}_百度百科`,             path: `/item/${enc}` },
+          { host: 'zhidao.baidu.com', title: `${q}是什么意思?_百度知道`,    path: `/question/` },
+          { host: 'tieba.baidu.com',  title: `${q}吧-百度贴吧`,            path: `/f?kw=${enc}` },
+          { host: 'baidu.com',        title: `${q}_百度搜索`,             path: `/s?wd=${enc}` },
+        ];
+      }
+      const slug = q.toLowerCase().replace(/\s+/g, '-');
+      const flat = slug.replace(/-/g, '');
+      return [
+        { host: 'en.wikipedia.org', title: `${q} — Wikipedia`,         path: `/wiki/${slug}` },
+        { host: `${flat || 'site'}.com`, title: `${q} — Official Site`, path: '/' },
+        { host: 'github.com',       title: `${q} · GitHub topics`,     path: `/topics/${slug}` },
+        { host: 'reddit.com',       title: `r/${flat || 'all'} — Reddit`, path: `/r/${flat}` },
+      ];
+    }
+
+    function detect(v) {
+      const s = v.trim();
+      if (!s) return 'empty';
+      return isUrl(s) ? 'url' : 'query';
+    }
+
+    function renderAddbarBody() {
+      inputState = detect(addbarIn.value);
+      engineEl.hidden = inputState !== 'query';
+      addbarField.classList.toggle('is-query', inputState === 'query');
+
+      if (inputState === 'empty') {
+        addbarLabel.textContent = 'Suggested';
+        addbarBody.innerHTML = `
+          <div class="addbar__suggestions">
+            ${SUGGESTIONS.map(s => `
+              <button class="addbar__suggest" data-host="${s.host}" data-title="${s.title}">
+                <img src="https://www.google.com/s2/favicons?domain=${s.host}&sz=64" alt="" />
+                <span>${s.title}</span>
+              </button>
+            `).join('')}
+          </div>`;
+      } else if (inputState === 'url') {
+        addbarLabel.textContent = 'Pin URL';
+        const v = addbarIn.value.trim();
+        const host = v.replace(/^https?:\/\//i, '').split('/')[0];
+        const pretty = v.replace(/^https?:\/\//i, '');
+        addbarBody.innerHTML = `
+          <button class="addbar__url-preview" data-host="${host}" data-title="${host}">
+            <img src="https://www.google.com/s2/favicons?domain=${host}&sz=64" alt="" />
+            <span class="addbar__url-preview-body">
+              <span class="addbar__url-preview-title">${host}</span>
+              <span class="addbar__url-preview-host">${pretty}</span>
+            </span>
+            <span class="addbar__result-pin">Pin ↵</span>
+          </button>`;
+      } else {
+        addbarLabel.textContent = `Results · ${engine === 'baidu' ? '百度' : 'Google'}`;
+        const results = mockResults(addbarIn.value);
+        addbarBody.innerHTML = `
+          <div class="addbar__results">
+            ${results.map(r => `
+              <button class="addbar__result" data-host="${r.host}" data-title="${r.title.replace(/"/g, '&quot;')}">
+                <span class="addbar__result-fav" style="background-image:url('https://www.google.com/s2/favicons?domain=${r.host}&sz=64')"></span>
+                <span class="addbar__result-body">
+                  <span class="addbar__result-title">${r.title}</span>
+                  <span class="addbar__result-host">${r.host}${r.path}</span>
+                </span>
+                <span class="addbar__result-pin">Pin</span>
+              </button>
+            `).join('')}
+          </div>`;
+      }
+    }
+
+    function openAddBar() {
+      if (addbar.getAttribute('data-open') === 'true') return;
+      addbar.setAttribute('data-open', 'true');
+      renderAddbarBody();
+      setTimeout(() => addbarIn.focus(), 120);
+    }
+    function closeAddBar() {
+      if (addbar.getAttribute('data-open') !== 'true') return;
+      addbar.setAttribute('data-open', 'false');
+      addbarIn.value = '';
+      addbarIn.blur();
+    }
+
+    function pinNewTab(host, title) {
+      const n = TABS.length + 1;
+      const tab = {
+        id:    `t_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        title: title || host,
+        host:  host,
+        path:  '/',
+        kbd:   n <= 9 ? `⌘${n}` : '',
+      };
+      TABS.push(tab);
+      if (mode !== 'tabs') {
+        mode = 'tabs';
+        document.getElementById('btn-tabs').classList.add('on');
+        document.getElementById('btn-empty').classList.remove('on');
+      }
+      renderRail();
+      closeAddBar();
+      setTimeout(() => selectTab(tab.id), 220);
+    }
+
+    function submitAdd() {
+      const v = addbarIn.value.trim();
+      if (!v) return;
+      if (inputState === 'url') {
+        const host = v.replace(/^https?:\/\//i, '').split('/')[0];
+        pinNewTab(host, host);
+      } else if (inputState === 'query') {
+        // Open search webview (in real app, loads google.com/search?q=...)
+        searchSession = { query: v, engine, viewing: null };
+        closeAddBar();
+        renderContent();
+        triggerLoading();
+      }
+    }
+
+    /* ────── Search session + preview popup ────── */
+    let searchSession = null; // { query, engine, viewing: {host,title,path}|null }
+
+    const previewModal  = document.getElementById('preview');
+    const previewFav    = document.getElementById('preview-favicon');
+    const previewTitle  = document.getElementById('preview-title');
+    const previewHostEl = document.getElementById('preview-host');
+    const previewPinBtn = document.getElementById('preview-pin');
+    const previewOpenBtn= document.getElementById('preview-open');
+    let pendingPreview  = null; // result being previewed
+
+    function snippetFor(r, q) {
+      if (engine === 'baidu') {
+        return `${r.title.split(/[_\-—]/)[0]}相关介绍。提供${q}的图片、视频、百科条目以及社区讨论。最新${q}信息一站浏览…`;
+      }
+      const host = r.host;
+      if (host.includes('wikipedia'))    return `${q} is a topic with extensive coverage. This article describes its background, history, and significance, with references to primary and secondary sources.`;
+      if (host.includes('github'))       return `Open source repositories tagged ${q}. Explore implementations, tools, and libraries built around ${q} by the developer community.`;
+      if (host.includes('reddit'))       return `Discussions about ${q} from the r/${q.replace(/\s+/g, '').toLowerCase()} community. Recent posts, top of the week, and tips from regular users.`;
+      return `Official site for ${q}. Get started, browse features, find documentation, and connect with the team behind ${q}.`;
+    }
+
+    function renderSearchView() {
+      const { query, engine: eng, viewing } = searchSession;
+      const engineLabel = eng === 'baidu' ? '百度' : 'Google';
+
+      if (viewing) {
+        // "Opened here" state — user chose Open here, not Pin
+        content.innerHTML = `
+          <div class="search-view">
+            <div class="search-chrome">
+              <button class="search-back" id="search-back" aria-label="Back to results">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                  <path d="M7 2.5L3.5 5.5L7 8.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <div class="search-bar">
+                <img src="https://www.google.com/s2/favicons?domain=${viewing.host}&sz=64" style="width:14px;height:14px;border-radius:3px" alt="" />
+                <span class="search-bar-q">${viewing.host}${viewing.path}</span>
+              </div>
+            </div>
+            <div class="search-opened">
+              <div>Now showing</div>
+              <div class="search-opened-host">${viewing.host}</div>
+              <div>(not pinned — page would render here in the real app)</div>
+              <button class="search-opened-pin" data-host="${viewing.host}" data-title="${viewing.title}">Pin this</button>
+            </div>
+          </div>`;
+        return;
+      }
+
+      const results = mockResults(query);
+      content.innerHTML = `
+        <div class="search-view">
+          <div class="search-chrome">
+            <button class="search-back" id="search-back" aria-label="Back">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+                <path d="M7 2.5L3.5 5.5L7 8.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <div class="search-bar">
+              <span class="search-bar-engine">${engineLabel}</span>
+              <span class="search-bar-q">${query}</span>
+            </div>
+          </div>
+          <div class="search-body">
+            <div class="search-meta">About ${results.length} results · click any link to preview before pinning</div>
+            ${results.map(r => `
+              <a class="search-result" data-host="${r.host}" data-title="${r.title.replace(/"/g, '&quot;')}" data-path="${r.path}">
+                <span class="search-result-meta">
+                  <img src="https://www.google.com/s2/favicons?domain=${r.host}&sz=64" alt="" />
+                  <span class="search-result-host">${r.host}</span>
+                  <span class="search-result-path">${r.path}</span>
+                </span>
+                <span class="search-result-title">${r.title}</span>
+                <span class="search-result-snippet">${snippetFor(r, query)}</span>
+              </a>
+            `).join('')}
+          </div>
+        </div>`;
+    }
+
+    function openPreview(r) {
+      pendingPreview = r;
+      previewTitle.textContent = r.title;
+      previewHostEl.textContent = `${r.host}${r.path}`;
+      previewFav.style.backgroundImage = `url('https://www.google.com/s2/favicons?domain=${r.host}&sz=128')`;
+      previewModal.setAttribute('data-open', 'true');
+      previewModal.setAttribute('aria-hidden', 'false');
+    }
+    function closePreview() {
+      if (previewModal.getAttribute('data-open') !== 'true') return;
+      previewModal.setAttribute('data-open', 'false');
+      previewModal.setAttribute('aria-hidden', 'true');
+      pendingPreview = null;
+    }
+    function confirmPin() {
+      if (!pendingPreview) return;
+      const r = pendingPreview;
+      closePreview();
+      searchSession = null;
+      pinNewTab(r.host, r.title);
+    }
+    function confirmOpenHere() {
+      if (!pendingPreview) return;
+      searchSession.viewing = { ...pendingPreview };
+      closePreview();
+      renderContent();
+      triggerLoading();
+    }
+
+    previewPinBtn.addEventListener('click', confirmPin);
+    previewOpenBtn.addEventListener('click', confirmOpenHere);
+    // Click on the dimmed backdrop to cancel
+    previewModal.addEventListener('click', e => {
+      if (e.target === previewModal) closePreview();
+    });
+
+    // Delegated clicks inside content (search results, back button, pin-from-opened)
+    content.addEventListener('click', e => {
+      const back = e.target.closest('#search-back');
+      if (back) {
+        if (searchSession && searchSession.viewing) {
+          searchSession.viewing = null;
+          renderContent();
+        } else {
+          searchSession = null;
+          renderContent();
+          triggerLoading();
+        }
+        return;
+      }
+      const result = e.target.closest('.search-result');
+      if (result) {
+        openPreview({
+          host: result.dataset.host,
+          title: result.dataset.title,
+          path: result.dataset.path,
+        });
+        return;
+      }
+      const pinOpened = e.target.closest('.search-opened-pin');
+      if (pinOpened) {
+        searchSession = null;
+        pinNewTab(pinOpened.dataset.host, pinOpened.dataset.title);
+      }
+    });
+
+    addbarIn.addEventListener('input', renderAddbarBody);
+    addbarIn.addEventListener('keydown', e => {
+      if (e.key === 'Enter')  { e.preventDefault(); submitAdd(); }
+      if (e.key === 'Escape') { e.preventDefault(); closeAddBar(); }
+    });
+    add.addEventListener('click', openAddBar);
+
+    // Delegated clicks inside the addbar
+    addbar.addEventListener('click', e => {
+      const sug = e.target.closest('.addbar__suggest');
+      if (sug) return pinNewTab(sug.dataset.host, sug.dataset.title);
+      const res = e.target.closest('.addbar__result');
+      if (res) return pinNewTab(res.dataset.host, res.dataset.title);
+      const upv = e.target.closest('.addbar__url-preview');
+      if (upv) return pinNewTab(upv.dataset.host, upv.dataset.title);
+      const eng = e.target.closest('.engine-btn');
+      if (eng) return setEngine(eng.dataset.engine);
+    });
+
+    setEngine(engine); // initialize toggle state
+
+    // Close on click outside (but not on the add button or inside addbar)
+    document.addEventListener('mousedown', e => {
+      if (addbar.getAttribute('data-open') !== 'true') return;
+      if (e.target.closest('#addbar') || e.target.closest('#rail-add')) return;
+      closeAddBar();
+    });
+
+    /* ────── Slide-away ────── */
+    function setAway(away) {
+      win.classList.toggle('window--away', away);
+      document.body.classList.toggle('is-away', away);
+      if (away) closeAddBar();
+    }
+    slideBtn.addEventListener('click', () => setAway(true));
+    awayHint.addEventListener('click', () => setAway(false));
+
+    /* ────── Fake loading sweep when switching tabs ────── */
+    function triggerLoading() {
+      const addr = document.getElementById('addr');
+      if (!addr) return;
+      addr.classList.remove('addr--loading');
+      // force reflow so the animation restarts cleanly
+      void addr.offsetWidth;
+      addr.classList.add('addr--loading');
+      clearTimeout(triggerLoading._t);
+      triggerLoading._t = setTimeout(() => addr.classList.remove('addr--loading'), 900);
+    }
+
+    /* ────── Switch tab ────── */
+    function selectTab(id) {
+      if (id === activeId && !searchSession) return;
+      activeId = id;
+      searchSession = null; // leaving search view if we were in it
+      updateActive();
+      renderContent();
+      triggerLoading();
+    }
+    list.addEventListener('click', e => {
+      const btn = e.target.closest('.rail__button');
+      if (!btn) return;
+      selectTab(btn.dataset.id);
+    });
+
+    /* ────── Mode toggle (preview only) ────── */
+    document.getElementById('btn-tabs').addEventListener('click', () => {
+      mode = 'tabs';
+      document.getElementById('btn-tabs').classList.add('on');
+      document.getElementById('btn-empty').classList.remove('on');
+      renderRail(); renderContent();
+    });
+    document.getElementById('btn-empty').addEventListener('click', () => {
+      mode = 'empty';
+      document.getElementById('btn-empty').classList.add('on');
+      document.getElementById('btn-tabs').classList.remove('on');
+      renderRail(); renderContent();
+    });
+
+    /* ────── Keyboard ────── */
+    document.addEventListener('keydown', e => {
+      // ⌘⇧\ — toggle slide away (use e.code so it works across layouts)
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.code === 'Backslash') {
+        e.preventDefault();
+        setAway(!win.classList.contains('window--away'));
+        return;
+      }
+      // Esc — close preview → close addbar → exit search view
+      if (e.key === 'Escape') {
+        if (previewModal.getAttribute('data-open') === 'true') {
+          e.preventDefault(); closePreview(); return;
+        }
+        if (addbar.getAttribute('data-open') === 'true') {
+          e.preventDefault(); closeAddBar(); return;
+        }
+        if (searchSession) {
+          e.preventDefault();
+          searchSession = null;
+          renderContent();
+          triggerLoading();
+          return;
+        }
+      }
+      // ⌘↵ inside preview — confirm pin
+      if (previewModal.getAttribute('data-open') === 'true' && (e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        confirmPin();
+        return;
+      }
+      // ↵ inside preview (without modifier) — open here
+      if (previewModal.getAttribute('data-open') === 'true' && e.key === 'Enter') {
+        e.preventDefault();
+        confirmOpenHere();
+        return;
+      }
+      // ⌘N — open add bar
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        openAddBar();
+        return;
+      }
+      // ⌘1–9 — switch tab
+      if ((e.metaKey || e.ctrlKey) && /^[1-9]$/.test(e.key) && mode === 'tabs') {
+        const t = TABS[+e.key - 1];
+        if (t) selectTab(t.id);
+        e.preventDefault();
+      }
+    });
+
+    renderRail();
+    renderContent();
+  </script>
+</body>
+</html>

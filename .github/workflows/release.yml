@@ -110,7 +110,25 @@ jobs:
           pnpm build
 
           if [ -z "${CSC_LINK:-}" ]; then
-            pnpm exec electron-builder --mac --publish never --config.mac.identity=null --config.mac.notarize=false
+            pnpm exec electron-builder --mac --dir --publish never --config.mac.identity=null --config.mac.notarize=false
+
+            app_dir="$(find release -maxdepth 1 -type d -name 'mac*' | head -n 1)"
+            if [ -z "$app_dir" ]; then
+              echo "Unable to find unpacked macOS app directory." >&2
+              exit 1
+            fi
+
+            app_path="$(find "$app_dir" -maxdepth 1 -type d -name '*.app' | head -n 1)"
+            if [ -z "$app_path" ]; then
+              echo "Unable to find unpacked macOS .app bundle." >&2
+              exit 1
+            fi
+
+            echo "Ad-hoc signing unsigned macOS app at $app_path"
+            codesign --force --deep --sign - --options runtime --entitlements build/entitlements.mac.plist "$app_path"
+            codesign --verify --deep --strict --verbose=2 "$app_path"
+
+            pnpm exec electron-builder --mac dmg zip --prepackaged "$app_dir" --publish never --config.mac.identity=null --config.mac.notarize=false
           else
             pnpm exec electron-builder --mac --publish never
           fi

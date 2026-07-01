@@ -1,7 +1,18 @@
 # Release Signing
 
-GitHub Actions builds unsigned artifacts by default. To produce macOS releases
-that pass Gatekeeper without manual overrides, configure these repository
+GitHub Actions can build ad-hoc signed macOS artifacts without Apple secrets, but
+public macOS releases still need Developer ID signing and Apple notarization to
+open without Gatekeeper prompts.
+
+If a downloaded macOS build shows `"Slide Web.app" is damaged and can't be
+opened`, the app is usually blocked by quarantine/Gatekeeper rather than
+actually corrupted. For local testing of an unsigned or ad-hoc signed build, run:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Slide Web.app"
+```
+
+For public distribution without manual overrides, configure these repository
 secrets:
 
 ## macOS Code Signing
@@ -24,6 +35,6 @@ Alternatively, use Apple ID credentials:
 - `APPLE_APP_SPECIFIC_PASSWORD`: App-specific password, not the Apple ID password.
 - `APPLE_TEAM_ID`: Apple Developer team ID.
 
-If signing or notarization secrets are missing, the workflow still builds the
-artifacts and prints a warning that the macOS release is unsigned or
-unnotarized.
+If signing or notarization secrets are missing, the workflow still builds macOS
+artifacts with an ad-hoc signature and prints a warning that the release is not
+Developer ID signed or notarized.

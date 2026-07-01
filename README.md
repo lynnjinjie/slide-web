@@ -74,7 +74,8 @@ Releases are built by `.github/workflows/release.yml` on pushes to `main` or
 `master`, and can also be started manually with `workflow_dispatch`.
 
 The workflow builds macOS and Windows artifacts, uploads them as workflow
-artifacts, and creates a GitHub Release named `release-<short-sha>`.
+artifacts, and creates a GitHub Release named after the package version, such as
+`v0.0.1`.
 
 macOS packages can be unsigned, but public distribution should use Developer ID
 signing and Apple notarization. See `docs/release.md` for the required GitHub

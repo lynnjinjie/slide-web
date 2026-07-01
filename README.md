@@ -1,5 +1,9 @@
 # Slide Web
 
+<p align="center">
+  <img src="assets/slide-web-icon.png" alt="Slide Web app icon" width="128" />
+</p>
+
 Slide Web is a small Electron companion app that lives at the side of the
 screen. It lets you keep web pages one shortcut away, add pages from a compact
 sidebar, and search with Google or Baidu before pinning a result.
@@ -59,6 +63,7 @@ src/main/       Electron main process: window, views, tabs, search, IPC
 src/preload/    Safe bridge exposed as window.slideweb
 src/renderer/   React UI for rail, add popup, settings, and empty state
 src/shared/     Shared types and navigation/search URL helpers
+assets/         README images and project visual assets
 build/          macOS signing entitlements
 docs/           Release and signing notes
 ```

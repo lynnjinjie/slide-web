@@ -138,6 +138,9 @@ jobs:
     needs: package
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Download package artifacts
         uses: actions/download-artifact@v4
         with:
@@ -156,9 +159,9 @@ jobs:
         run: |
           set -euo pipefail
 
-          short_sha="${GITHUB_SHA::7}"
-          tag="release-${short_sha}"
-          title="Slide Web ${short_sha}"
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          title="Slide Web v${version}"
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release delete "$tag" --cleanup-tag --yes
@@ -173,5 +176,5 @@ jobs:
           gh release create "$tag" "${files[@]}" \
             --target "$GITHUB_SHA" \
             --title "$title" \
-            --notes "Automated release for commit ${GITHUB_SHA}." \
+            --notes "Automated release for v${version} (${GITHUB_SHA})." \
             --latest

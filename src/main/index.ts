@@ -1,9 +1,28 @@
-import { app, BaseWindow, WebContentsView, globalShortcut, screen, ipcMain, session } from 'electron'
+import {
+  app,
+  BaseWindow,
+  Menu,
+  Tray,
+  WebContentsView,
+  globalShortcut,
+  ipcMain,
+  nativeImage,
+  screen,
+  session,
+} from 'electron'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 
-import type { Language, PreviewInfo, SearchBounds, SearchEngine, Settings, Tab } from '../shared/types'
+import type {
+  Language,
+  NavigationState,
+  PreviewInfo,
+  SearchBounds,
+  SearchEngine,
+  Settings,
+  Tab,
+} from '../shared/types'
 import {
   buildSearchUrl,
   extractRealUrl,
@@ -19,12 +38,14 @@ const RAIL_WIDTH = 56
 
 let win: BaseWindow | null = null
 let uiView: WebContentsView | null = null
+let tray: Tray | null = null
 const tabViews = new Map<string, WebContentsView>()
 let tabs: Tab[] = []
 let activeTabId: string | null = null
 let addbarOpen = false
 let settingsOpen = false
 let previewOpen = false
+let dialogOpen = false
 let isVisible = true
 
 // Transient search session. searchView is created on demand and destroyed on exit.
@@ -33,12 +54,21 @@ let searchSession: { engine: SearchEngine; query: string } | null = null
 let searchPopupBounds: SearchBounds | null = null
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+\\'
-let settings: Settings = { toggleHotkey: DEFAULT_HOTKEY, language: 'en' }
+const DEFAULT_EDGE_WAKE_ENABLED = true
+let settings: Settings = {
+  toggleHotkey: DEFAULT_HOTKEY,
+  language: 'en',
+  edgeWakeEnabled: DEFAULT_EDGE_WAKE_ENABLED,
+}
 let storePath = ''
 let animating = false
 const SNAP_THRESHOLD = 30 // px — within this distance from work-area right edge, snap
 const MOVE_END_DELAY = 220 // ms — treat "no move events for this long" as a drag-end
 let moveEndTimer: NodeJS.Timeout | null = null
+const EDGE_WAKE_INTERVAL = 120
+const EDGE_WAKE_MARGIN = 6
+const EDGE_WAKE_VERTICAL_SLOP = 8
+let edgeWakeTimer: NodeJS.Timeout | null = null
 
 type SnapSide = 'left' | 'right' | null
 type WindowState = {
@@ -104,6 +134,11 @@ async function loadStore() {
       // First-launch default: pick from OS locale (zh-* → zh, otherwise en)
       const locale = app.getLocale().toLowerCase()
       settings.language = locale.startsWith('zh') ? 'zh' : 'en'
+    }
+    if (typeof data.settings?.edgeWakeEnabled === 'boolean') {
+      settings.edgeWakeEnabled = data.settings.edgeWakeEnabled
+    } else {
+      settings.edgeWakeEnabled = DEFAULT_EDGE_WAKE_ENABLED
     }
   } catch {
     tabs = []
@@ -176,9 +211,10 @@ function targetBounds() {
 function relayout() {
   if (!win || !uiView) return
   const b = win.getBounds()
-  const overlayOpen = addbarOpen || settingsOpen || previewOpen
+  const contentOverlayOpen = addbarOpen || settingsOpen || previewOpen
+  const uiOverlayOpen = contentOverlayOpen || dialogOpen
   const hasContent = tabs.length > 0
-  const uiW = overlayOpen || !hasContent ? b.width : RAIL_WIDTH
+  const uiW = uiOverlayOpen || !hasContent ? b.width : RAIL_WIDTH
   uiView.setBounds({ x: 0, y: 0, width: uiW, height: b.height })
 
   const tabX = RAIL_WIDTH
@@ -194,12 +230,48 @@ function relayout() {
       view.setVisible(false)
     }
   } else {
-    const showTab = !overlayOpen && tabs.length > 0
+    const showTab = !contentOverlayOpen && tabs.length > 0
     for (const [id, view] of tabViews) {
       view.setBounds({ x: tabX, y: 0, width: tabW, height: b.height })
       view.setVisible(showTab && id === activeTabId)
     }
   }
+}
+
+function getActiveTabView() {
+  if (!activeTabId) return null
+  return tabViews.get(activeTabId) ?? null
+}
+
+function getNavigationState(): NavigationState {
+  const view = getActiveTabView()
+  const history = view?.webContents.navigationHistory
+  return {
+    canGoBack: Boolean(history?.canGoBack()),
+    canGoForward: Boolean(history?.canGoForward()),
+  }
+}
+
+function notifyNavigationState() {
+  uiView?.webContents.send('navigation:changed', getNavigationState())
+}
+
+function notifyNavigationStateForTab(id: string) {
+  if (id === activeTabId) notifyNavigationState()
+}
+
+function navigateHistory(direction: 'back' | 'forward') {
+  const view = getActiveTabView()
+  if (!view) return
+
+  const history = view.webContents.navigationHistory
+  if (direction === 'back' && history.canGoBack()) {
+    history.goBack()
+  }
+  if (direction === 'forward' && history.canGoForward()) {
+    history.goForward()
+  }
+  notifyNavigationState()
 }
 
 const SNAP_ANIM_DURATION = 220
@@ -348,6 +420,90 @@ function createWindow() {
   isVisible = true
 }
 
+/* ────── tray / status item ────── */
+function getTrayIcon() {
+  const appRoot = app.getAppPath()
+  const cwd = process.cwd()
+  const preferred = process.platform === 'win32' ? 'icon.ico' : 'icon.png'
+  const candidates = [
+    path.join(appRoot, 'build', preferred),
+    path.join(appRoot, 'build', 'icon.png'),
+    path.join(cwd, 'build', preferred),
+    path.join(cwd, 'build', 'icon.png'),
+  ]
+
+  let image = nativeImage.createEmpty()
+  for (const iconPath of candidates) {
+    image = nativeImage.createFromPath(iconPath)
+    if (!image.isEmpty()) break
+  }
+
+  if (image.isEmpty()) return image
+
+  const size = process.platform === 'darwin' ? 18 : 16
+  return image.resize({ width: size, height: size })
+}
+
+function trayLabels() {
+  if (settings.language === 'zh') {
+    return {
+      open: '打开 Slide Web',
+      settings: '打开设置',
+      quit: '退出 Slide Web',
+    }
+  }
+
+  return {
+    open: 'Open Slide Web',
+    settings: 'Open Settings',
+    quit: 'Quit Slide Web',
+  }
+}
+
+function revealWindowFromTray() {
+  if (!win) return
+  if (!isVisible) {
+    show()
+    return
+  }
+  stopEdgeWakeWatcher()
+  win.show()
+  win.focus()
+  isVisible = true
+}
+
+function openSettingsFromTray() {
+  revealWindowFromTray()
+  setDialog(false)
+  setPreview(false)
+  setSettings(true)
+  uiView?.webContents.send('settings:show')
+}
+
+function refreshTrayMenu() {
+  if (!tray) return
+  const labels = trayLabels()
+  const menu = Menu.buildFromTemplate([
+    { label: labels.open, click: revealWindowFromTray },
+    { label: labels.settings, click: openSettingsFromTray },
+    { type: 'separator' },
+    { label: labels.quit, click: () => void quitApp() },
+  ])
+  tray.setToolTip('Slide Web')
+  tray.setContextMenu(menu)
+}
+
+function createTray() {
+  if (tray) return
+  tray = new Tray(getTrayIcon())
+  refreshTrayMenu()
+
+  tray.on('click', () => {
+    if (process.platform !== 'darwin') revealWindowFromTray()
+  })
+  tray.on('double-click', revealWindowFromTray)
+}
+
 function deElectronUA(view: WebContentsView) {
   const ua = view.webContents.getUserAgent()
   const cleaned = ua
@@ -380,19 +536,46 @@ function createTabView(tab: Tab): WebContentsView {
         uiView?.webContents.send('tabs:changed', tabs)
       }
     }
+    notifyNavigationStateForTab(tab.id)
+  })
+  view.webContents.on('did-start-navigation', (_e, _url, _isInPlace, isMainFrame) => {
+    if (isMainFrame) notifyNavigationStateForTab(tab.id)
   })
   view.webContents.on('did-navigate', (_e, url) => {
     syncTabLocation(tab.id, url)
+    notifyNavigationStateForTab(tab.id)
   })
   view.webContents.on('did-navigate-in-page', (_e, url, isMainFrame) => {
-    if (isMainFrame) syncTabLocation(tab.id, url)
+    if (isMainFrame) {
+      syncTabLocation(tab.id, url)
+      notifyNavigationStateForTab(tab.id)
+    }
   })
   view.webContents.on('did-finish-load', () => {
     syncTabLocation(tab.id, view.webContents.getURL())
+    notifyNavigationStateForTab(tab.id)
+  })
+  view.webContents.on('did-stop-loading', () => {
+    notifyNavigationStateForTab(tab.id)
   })
   view.webContents.on('did-fail-load', (_e, code, desc, url) => {
     if (code === -3) return // ABORTED — harmless
     console.warn('[slide-web] load failed', tab.id, code, desc, url)
+  })
+  view.webContents.setWindowOpenHandler(({ url }) => {
+    let target: URL
+    try {
+      target = new URL(url)
+    } catch {
+      return { action: 'deny' }
+    }
+
+    if (target.protocol === 'http:' || target.protocol === 'https:') {
+      view.webContents.loadURL(target.toString()).catch((err) => {
+        console.warn('[slide-web] tab window-open load failed', err)
+      })
+    }
+    return { action: 'deny' }
   })
 
   // Insert below the UI view in z-order (index 0 = bottom)
@@ -460,6 +643,7 @@ function removeTab(id: string) {
   relayout()
   saveStore()
   uiView?.webContents.send('tabs:changed', tabs)
+  notifyNavigationState()
 }
 
 function setActiveTab(id: string | null) {
@@ -470,6 +654,7 @@ function setActiveTab(id: string | null) {
   relayout()
   saveStore()
   uiView?.webContents.send('active:changed', activeTabId)
+  notifyNavigationState()
 }
 
 function setAddbar(open: boolean) {
@@ -490,6 +675,11 @@ function setSettings(open: boolean) {
 
 function setPreview(open: boolean) {
   previewOpen = open
+  relayout()
+}
+
+function setDialog(open: boolean) {
+  dialogOpen = open
   relayout()
 }
 
@@ -681,6 +871,46 @@ function applyHotkey(accelerator: string): { ok: boolean; error?: string } {
   return { ok: true }
 }
 
+function stopEdgeWakeWatcher() {
+  if (!edgeWakeTimer) return
+  clearInterval(edgeWakeTimer)
+  edgeWakeTimer = null
+}
+
+function shouldWakeFromEdge() {
+  if (!settings.edgeWakeEnabled || isVisible || animating || !windowState.snapped) return false
+  const point = screen.getCursorScreenPoint()
+  const target = targetBounds()
+  const work = screen.getPrimaryDisplay().workArea
+  const inVerticalRange =
+    point.y >= target.y - EDGE_WAKE_VERTICAL_SLOP &&
+    point.y <= target.y + target.height + EDGE_WAKE_VERTICAL_SLOP
+  if (!inVerticalRange) return false
+
+  if (windowState.snapped === 'left') {
+    return point.x >= work.x && point.x <= work.x + EDGE_WAKE_MARGIN
+  }
+  return point.x >= work.x + work.width - EDGE_WAKE_MARGIN && point.x <= work.x + work.width
+}
+
+function startEdgeWakeWatcher() {
+  if (edgeWakeTimer || isVisible || !settings.edgeWakeEnabled || !windowState.snapped) return
+  edgeWakeTimer = setInterval(() => {
+    if (!settings.edgeWakeEnabled || isVisible || !windowState.snapped) {
+      stopEdgeWakeWatcher()
+      return
+    }
+    if (shouldWakeFromEdge()) show()
+  }, EDGE_WAKE_INTERVAL)
+}
+
+function applyEdgeWake(enabled: boolean) {
+  settings.edgeWakeEnabled = enabled
+  saveStore()
+  if (enabled) startEdgeWakeWatcher()
+  else stopEdgeWakeWatcher()
+}
+
 /* ────── show/hide with slide animation ────── */
 const SHOW_DURATION = 240
 const HIDE_DURATION = 200
@@ -715,6 +945,7 @@ function animateX(targetX: number, durationMs: number, done: () => void) {
 
 function show() {
   if (!win || animating || isVisible) return
+  stopEdgeWakeWatcher()
   const target = targetBounds()
 
   if (!windowState.snapped) {
@@ -742,6 +973,7 @@ function hide() {
     // Free-floating: just hide. Position is preserved in windowState.
     win.hide()
     isVisible = false
+    startEdgeWakeWatcher()
     return
   }
 
@@ -750,6 +982,7 @@ function hide() {
     win?.hide()
     isVisible = false
     animating = false
+    startEdgeWakeWatcher()
   })
 }
 
@@ -758,10 +991,19 @@ function toggleVisible() {
   else show()
 }
 
+async function quitApp() {
+  await saveStore()
+  globalShortcut.unregisterAll()
+  app.quit()
+}
+
 /* ────── IPC ────── */
 function setupIpc() {
   ipcMain.handle('tabs:get', () => tabs)
   ipcMain.handle('active:get', () => activeTabId)
+  ipcMain.handle('navigation:get', () => getNavigationState())
+  ipcMain.handle('navigation:back', () => navigateHistory('back'))
+  ipcMain.handle('navigation:forward', () => navigateHistory('forward'))
   ipcMain.handle('tabs:add', (_e, input: { url: string; title?: string }) => addTab(input))
   ipcMain.handle('tabs:remove', (_e, id: string) => removeTab(id))
   ipcMain.handle('tabs:select', (_e, id: string) => setActiveTab(id))
@@ -775,6 +1017,10 @@ function setupIpc() {
     if (language !== 'en' && language !== 'zh') return
     settings.language = language
     saveStore()
+    refreshTrayMenu()
+  })
+  ipcMain.handle('settings:setEdgeWakeEnabled', (_e, enabled: boolean) => {
+    applyEdgeWake(Boolean(enabled))
   })
   ipcMain.handle(
     'search:start',
@@ -789,7 +1035,10 @@ function setupIpc() {
     exitSearch()
     addTab({ url: info.url, title: info.title || info.host })
   })
+  ipcMain.handle('dialog:open', () => setDialog(true))
+  ipcMain.handle('dialog:close', () => setDialog(false))
   ipcMain.handle('window:hide', () => hide())
+  ipcMain.handle('app:quit', () => quitApp())
 }
 
 /* ────── app lifecycle ────── */
@@ -806,6 +1055,7 @@ if (!gotLock) {
     await loadStore()
     setupIpc()
     createWindow()
+    createTray()
 
     const ok = globalShortcut.register(settings.toggleHotkey, toggleVisible)
     if (!ok) {
@@ -832,7 +1082,11 @@ if (!gotLock) {
   app.on('activate', () => {
     if (win && !isVisible) show()
   })
-  app.on('will-quit', () => globalShortcut.unregisterAll())
+  app.on('will-quit', () => {
+    globalShortcut.unregisterAll()
+    tray?.destroy()
+    tray = null
+  })
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit()
   })

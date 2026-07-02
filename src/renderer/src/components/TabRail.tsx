@@ -5,10 +5,15 @@ import { useT } from '../i18n'
 interface Props {
   tabs: Tab[]
   activeId: string | null
+  devMode: boolean
   hideHint: string
+  canGoBack: boolean
+  canGoForward: boolean
   onSelect: (id: string) => void
   onAdd: () => void
-  onRemove: (id: string) => void
+  onBack: () => void
+  onForward: () => void
+  onRemove: (tab: Tab) => void
   onHide: () => void
   onSettings: () => void
   settingsActive: boolean
@@ -23,9 +28,14 @@ type FloatingTooltip = {
 export function TabRail({
   tabs,
   activeId,
+  devMode,
   hideHint,
+  canGoBack,
+  canGoForward,
   onSelect,
   onAdd,
+  onBack,
+  onForward,
   onRemove,
   onHide,
   onSettings,
@@ -56,6 +66,33 @@ export function TabRail({
         <ChevronRight />
         <Tooltip text={t('rail.hide')} hint={hideHint} />
       </button>
+      <div className="rail__history" aria-label={t('rail.history')}>
+        <button
+          type="button"
+          className="rail__history-button"
+          onClick={onBack}
+          disabled={!canGoBack}
+          aria-label={t('rail.back')}
+        >
+          <ChevronLeft />
+          <Tooltip text={t('rail.back')} />
+        </button>
+        <button
+          type="button"
+          className="rail__history-button"
+          onClick={onForward}
+          disabled={!canGoForward}
+          aria-label={t('rail.forward')}
+        >
+          <ChevronRight />
+          <Tooltip text={t('rail.forward')} />
+        </button>
+      </div>
+      {devMode ? (
+        <span className="rail__env" title="Development environment" aria-label="Development environment">
+          DEV
+        </span>
+      ) : null}
       <span className="rail__divider" aria-hidden />
       <ul className="rail__list">
         {tabs.map((tab, i) => (
@@ -70,7 +107,7 @@ export function TabRail({
             }}
             onRemove={() => {
               setFloatingTooltip(null)
-              onRemove(tab.id)
+              onRemove(tab)
             }}
             onTooltipChange={setFloatingTooltip}
           />
@@ -121,7 +158,6 @@ function TabItem({
   onRemove: () => void
   onTooltipChange: (tooltip: FloatingTooltip | null) => void
 }) {
-  const t = useT()
   const favicon = `https://www.google.com/s2/favicons?domain=${tab.host}&sz=64`
   const hint = index < 9 ? `⌘${index + 1}` : undefined
 
@@ -140,24 +176,46 @@ function TabItem({
       onContextMenu={(e) => {
         e.preventDefault()
         onTooltipChange(null)
-        if (confirm(t('rail.removeConfirm', { title: tab.title }))) onRemove()
+        onRemove()
       }}
     >
       <span className="rail__indicator" aria-hidden />
-      <button
-        className="rail__button"
-        onClick={onSelect}
-        onPointerEnter={(e) => showTooltip(e.currentTarget)}
-        onPointerLeave={() => onTooltipChange(null)}
-        onFocus={(e) => showTooltip(e.currentTarget)}
-        onBlur={() => onTooltipChange(null)}
-        aria-current={isActive ? 'true' : undefined}
-        style={{ animationDelay: `${index * 30}ms` }}
-      >
-        <img className="rail__favicon" src={favicon} alt="" draggable={false} />
-        <span className="rail__live" aria-hidden />
-      </button>
+      <span className="rail__tab-wrap" style={{ animationDelay: `${index * 30}ms` }}>
+        <button
+          className="rail__button"
+          onClick={onSelect}
+          onPointerEnter={(e) => showTooltip(e.currentTarget)}
+          onPointerLeave={() => onTooltipChange(null)}
+          onFocus={(e) => showTooltip(e.currentTarget)}
+          onBlur={() => onTooltipChange(null)}
+          aria-current={isActive ? 'true' : undefined}
+        >
+          <img className="rail__favicon" src={favicon} alt="" draggable={false} />
+          <span className="rail__live" aria-hidden />
+        </button>
+        <button
+          type="button"
+          className="rail__remove"
+          onClick={(e) => {
+            e.stopPropagation()
+            onTooltipChange(null)
+            onRemove()
+          }}
+          aria-label={`Remove ${tab.title}`}
+          title={`Remove ${tab.title}`}
+        >
+          <CloseMini />
+        </button>
+      </span>
     </li>
+  )
+}
+
+function CloseMini() {
+  return (
+    <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
+      <path d="M2.25 2.25l4.5 4.5M6.75 2.25l-4.5 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
   )
 }
 
@@ -173,6 +231,14 @@ function ChevronRight() {
   return (
     <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
       <path d="M3.5 2.5L7 5.5L3.5 8.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function ChevronLeft() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
+      <path d="M7.5 2.5L4 5.5L7.5 8.5" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }

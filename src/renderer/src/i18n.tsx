@@ -6,9 +6,14 @@ type Dict = Record<string, string>
 
 const en: Dict = {
   'rail.hide': 'Hide',
+  'rail.history': 'Navigation history',
+  'rail.back': 'Back',
+  'rail.forward': 'Forward',
   'rail.addTab': 'Add tab',
   'rail.settings': 'Settings',
   'rail.removeConfirm': 'Remove "{title}"?',
+  'rail.removeCancel': 'Cancel',
+  'rail.removeOk': 'OK',
 
   'empty.title.line1': 'A quiet place',
   'empty.title.line2': 'for one more tab',
@@ -39,6 +44,7 @@ const en: Dict = {
   'settings.prompt.em': 'yours',
   'settings.prompt.afterEm': '.',
   'settings.close': 'Close settings',
+  'settings.quit': 'Quit app',
   'settings.hotkey.name': 'Toggle shortcut',
   'settings.hotkey.desc': 'Show / hide the panel from anywhere.',
   'settings.hotkey.recording': 'Press a shortcut · esc to cancel',
@@ -47,6 +53,10 @@ const en: Dict = {
   'settings.language.desc': 'Interface language.',
   'settings.language.en': 'English',
   'settings.language.zh': '中文',
+  'settings.edgeWake.name': 'Edge wake',
+  'settings.edgeWake.desc': 'When hidden, move the cursor to the screen edge to slide the app back.',
+  'settings.edgeWake.on': 'On',
+  'settings.edgeWake.off': 'Off',
   'settings.reset': 'Reset to default',
 
   'preview.pin': 'Pin to sidebar',
@@ -60,9 +70,14 @@ const en: Dict = {
 
 const zh: Dict = {
   'rail.hide': '隐藏',
+  'rail.history': '导航历史',
+  'rail.back': '后退',
+  'rail.forward': '前进',
   'rail.addTab': '添加标签页',
   'rail.settings': '设置',
   'rail.removeConfirm': '移除 "{title}"？',
+  'rail.removeCancel': '取消',
+  'rail.removeOk': '确定',
 
   'empty.title.line1': '一处安静的角落',
   'empty.title.line2': '再放一个标签',
@@ -91,6 +106,7 @@ const zh: Dict = {
   'settings.prompt.em': '心意',
   'settings.prompt.afterEm': '。',
   'settings.close': '关闭设置',
+  'settings.quit': '退出应用',
   'settings.hotkey.name': '切换快捷键',
   'settings.hotkey.desc': '从任何地方显示 / 隐藏面板。',
   'settings.hotkey.recording': '按下快捷键 · esc 取消',
@@ -99,6 +115,10 @@ const zh: Dict = {
   'settings.language.desc': '界面显示语言。',
   'settings.language.en': 'English',
   'settings.language.zh': '中文',
+  'settings.edgeWake.name': '边缘唤醒',
+  'settings.edgeWake.desc': '隐藏后，把鼠标移到屏幕边缘即可滑出应用。',
+  'settings.edgeWake.on': '开启',
+  'settings.edgeWake.off': '关闭',
   'settings.reset': '恢复默认',
 
   'preview.pin': '固定到侧栏',

@@ -7,14 +7,20 @@ interface Props {
   settings: Settings | null
   onClose: () => void
   onChange: (settings: Settings) => void
+  onQuit: () => void
 }
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+\\'
+const DEFAULT_SETTINGS: Settings = {
+  toggleHotkey: DEFAULT_HOTKEY,
+  language: 'en',
+  edgeWakeEnabled: true,
+}
 
 const isMac =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
-export function SettingsPanel({ open, settings, onClose, onChange }: Props) {
+export function SettingsPanel({ open, settings, onClose, onChange, onQuit }: Props) {
   const t = useT()
   const [error, setError] = useState<string | null>(null)
 
@@ -27,7 +33,7 @@ export function SettingsPanel({ open, settings, onClose, onChange }: Props) {
       const result = await window.slideweb.setHotkey(accelerator)
       if (result.ok) {
         setError(null)
-        onChange({ ...(settings ?? { language: 'en' as Language }), toggleHotkey: accelerator })
+        onChange({ ...(settings ?? DEFAULT_SETTINGS), toggleHotkey: accelerator })
       } else {
         setError(result.error || t('settings.hotkey.error'))
       }
@@ -38,12 +44,21 @@ export function SettingsPanel({ open, settings, onClose, onChange }: Props) {
   const applyLanguage = useCallback(
     async (language: Language) => {
       await window.slideweb.setLanguage(language)
-      onChange({ ...(settings ?? { toggleHotkey: DEFAULT_HOTKEY }), language })
+      onChange({ ...(settings ?? DEFAULT_SETTINGS), language })
+    },
+    [onChange, settings],
+  )
+
+  const applyEdgeWake = useCallback(
+    async (enabled: boolean) => {
+      await window.slideweb.setEdgeWakeEnabled(enabled)
+      onChange({ ...(settings ?? DEFAULT_SETTINGS), edgeWakeEnabled: enabled })
     },
     [onChange, settings],
   )
 
   const currentLang: Language = settings?.language ?? 'en'
+  const edgeWakeEnabled = settings?.edgeWakeEnabled ?? DEFAULT_SETTINGS.edgeWakeEnabled
 
   return (
     <div className="settings" data-open={open}>
@@ -97,10 +112,41 @@ export function SettingsPanel({ open, settings, onClose, onChange }: Props) {
         </div>
       </div>
 
-      <button type="button" className="settings__close" onClick={onClose}>
-        <CloseIcon />
-        <span>{t('settings.close')}</span>
-      </button>
+      <div className="settings__field">
+        <div className="settings__row">
+          <div className="settings__label">
+            <span className="settings__label-name">{t('settings.edgeWake.name')}</span>
+            <span className="settings__label-desc">{t('settings.edgeWake.desc')}</span>
+          </div>
+          <div className="settings__seg">
+            <button
+              type="button"
+              className={edgeWakeEnabled ? 'on' : ''}
+              onClick={() => applyEdgeWake(true)}
+            >
+              {t('settings.edgeWake.on')}
+            </button>
+            <button
+              type="button"
+              className={!edgeWakeEnabled ? 'on' : ''}
+              onClick={() => applyEdgeWake(false)}
+            >
+              {t('settings.edgeWake.off')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings__actions">
+        <button type="button" className="settings__close" onClick={onClose}>
+          <CloseIcon />
+          <span>{t('settings.close')}</span>
+        </button>
+        <button type="button" className="settings__quit" onClick={onQuit}>
+          <PowerIcon />
+          <span>{t('settings.quit')}</span>
+        </button>
+      </div>
     </div>
   )
 }
@@ -109,6 +155,20 @@ function CloseIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
       <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function PowerIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path d="M7 2v4.2" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" />
+      <path
+        d="M4.45 3.7a4.25 4.25 0 1 0 5.1 0"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+      />
     </svg>
   )
 }

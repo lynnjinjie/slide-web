@@ -1,6 +1,6 @@
 {
   "name": "slide-web",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "description": "A slide-over web companion for macOS and Windows",
@@ -42,6 +42,8 @@
     },
     "files": [
       "out/**/*",
+      "build/icon.png",
+      "build/icon.ico",
       "package.json"
     ],
     "mac": {

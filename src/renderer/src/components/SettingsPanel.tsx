@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Language, Settings } from '../../../shared/types'
+import type { Language, Settings, UpdateState } from '../../../shared/types'
 import { useT } from '../i18n'
 
 interface Props {
@@ -8,6 +8,10 @@ interface Props {
   onClose: () => void
   onChange: (settings: Settings) => void
   onQuit: () => void
+  updateState: UpdateState | null
+  onCheckUpdates: () => void
+  onDownloadUpdate: () => void
+  onInstallUpdate: () => void
 }
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+\\'
@@ -20,7 +24,17 @@ const DEFAULT_SETTINGS: Settings = {
 const isMac =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
-export function SettingsPanel({ open, settings, onClose, onChange, onQuit }: Props) {
+export function SettingsPanel({
+  open,
+  settings,
+  onClose,
+  onChange,
+  onQuit,
+  updateState,
+  onCheckUpdates,
+  onDownloadUpdate,
+  onInstallUpdate,
+}: Props) {
   const t = useT()
   const [error, setError] = useState<string | null>(null)
 
@@ -59,6 +73,15 @@ export function SettingsPanel({ open, settings, onClose, onChange, onQuit }: Pro
 
   const currentLang: Language = settings?.language ?? 'en'
   const edgeWakeEnabled = settings?.edgeWakeEnabled ?? DEFAULT_SETTINGS.edgeWakeEnabled
+  const updateStatus = updateState?.status ?? 'idle'
+  const updateAction = getUpdateAction(updateState)
+  const updateActionDisabled = updateStatus === 'checking' || updateStatus === 'downloading' || updateStatus === 'unsupported'
+  const updateActionHandler =
+    updateAction === 'install'
+      ? onInstallUpdate
+      : updateAction === 'download'
+        ? onDownloadUpdate
+        : onCheckUpdates
 
   return (
     <div className="settings" data-open={open}>
@@ -137,6 +160,41 @@ export function SettingsPanel({ open, settings, onClose, onChange, onQuit }: Pro
         </div>
       </div>
 
+      <div className="settings__field settings__update">
+        <div className="settings__row">
+          <div className="settings__label">
+            <span className="settings__label-name">{t('settings.update.name')}</span>
+            <span className="settings__label-desc">{t('settings.update.desc')}</span>
+          </div>
+          <span className="settings__version">
+            {t('settings.update.current', { version: updateState?.currentVersion ?? '...' })}
+          </span>
+        </div>
+        <p className={`settings__update-status settings__update-status--${updateStatus}`}>
+          {updateStatusMessage(updateState, t)}
+        </p>
+        {updateStatus === 'downloading' ? (
+          <div className="settings__progress" aria-label={t('settings.update.progress')}>
+            <span style={{ width: `${updateState?.percent ?? 0}%` }} />
+          </div>
+        ) : null}
+        {(updateStatus === 'available' || updateStatus === 'downloaded') && updateState?.releaseNotes ? (
+          <details className="settings__notes">
+            <summary>{t('settings.update.releaseNotes')}</summary>
+            <p>{updateState.releaseNotes}</p>
+          </details>
+        ) : null}
+        <button
+          type="button"
+          className="settings__update-button"
+          onClick={updateActionHandler}
+          disabled={updateActionDisabled}
+        >
+          <UpdateIcon />
+          <span>{t(`settings.update.${updateAction}`)}</span>
+        </button>
+      </div>
+
       <div className="settings__actions">
         <button type="button" className="settings__close" onClick={onClose}>
           <CloseIcon />
@@ -148,6 +206,50 @@ export function SettingsPanel({ open, settings, onClose, onChange, onQuit }: Pro
         </button>
       </div>
     </div>
+  )
+}
+
+function getUpdateAction(state: UpdateState | null): 'check' | 'download' | 'install' {
+  if (state?.status === 'available') return 'download'
+  if (state?.status === 'downloaded') return 'install'
+  return 'check'
+}
+
+function updateStatusMessage(state: UpdateState | null, t: ReturnType<typeof useT>) {
+  if (!state) return t('settings.update.idle')
+  switch (state.status) {
+    case 'unsupported':
+      return t('settings.update.unsupported')
+    case 'checking':
+      return t('settings.update.checking')
+    case 'available':
+      return t('settings.update.available', { version: state.availableVersion ?? 'unknown' })
+    case 'not-available':
+      return t('settings.update.notAvailable')
+    case 'downloading':
+      return t('settings.update.downloading', { percent: String(state.percent ?? 0) })
+    case 'downloaded':
+      return t('settings.update.downloaded', { version: state.availableVersion ?? 'unknown' })
+    case 'error':
+      return t('settings.update.error', { message: state.error ?? 'Unknown error' })
+    case 'idle':
+    default:
+      return t('settings.update.idle')
+  }
+}
+
+function UpdateIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path
+        d="M3.1 6.6A4 4 0 0 1 10 4.15l.45.48M10.9 7.4A4 4 0 0 1 4 9.85l-.45-.48"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M10.6 2.55v2.25H8.35M3.4 11.45V9.2h2.25" stroke="currentColor" strokeWidth="1.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   )
 }
 

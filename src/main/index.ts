@@ -2,6 +2,7 @@ import {
   app,
   BaseWindow,
   Menu,
+  Notification,
   Tray,
   WebContentsView,
   globalShortcut,
@@ -10,6 +11,8 @@ import {
   screen,
   session,
 } from 'electron'
+import log from 'electron-log/main'
+import { autoUpdater, type ProgressInfo, type UpdateDownloadedEvent, type UpdateInfo } from 'electron-updater'
 import path from 'node:path'
 import fs from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
@@ -22,6 +25,7 @@ import type {
   SearchEngine,
   Settings,
   Tab,
+  UpdateState,
 } from '../shared/types'
 import {
   buildSearchUrl,
@@ -60,6 +64,13 @@ let settings: Settings = {
   language: 'en',
   edgeWakeEnabled: DEFAULT_EDGE_WAKE_ENABLED,
 }
+let updateState: UpdateState = {
+  status: 'idle',
+  currentVersion: app.getVersion(),
+  isPackaged: app.isPackaged,
+}
+let updaterReady = false
+let lastNotifiedUpdateVersion: string | null = null
 let storePath = ''
 let animating = false
 const SNAP_THRESHOLD = 30 // px — within this distance from work-area right edge, snap
@@ -68,7 +79,14 @@ let moveEndTimer: NodeJS.Timeout | null = null
 const EDGE_WAKE_INTERVAL = 120
 const EDGE_WAKE_MARGIN = 6
 const EDGE_WAKE_VERTICAL_SLOP = 8
+const UPDATE_CHECK_INTERVAL = 6 * 60 * 60 * 1000
+const UPDATE_FEED = {
+  provider: 'github' as const,
+  owner: 'lynnjinjie',
+  repo: 'slide-web',
+}
 let edgeWakeTimer: NodeJS.Timeout | null = null
+let updateCheckTimer: NodeJS.Timeout | null = null
 
 type SnapSide = 'left' | 'right' | null
 type WindowState = {
@@ -502,6 +520,226 @@ function createTray() {
     if (process.platform !== 'darwin') revealWindowFromTray()
   })
   tray.on('double-click', revealWindowFromTray)
+}
+
+/* ────── app updates ────── */
+function errorMessage(err: unknown) {
+  if (err instanceof Error) return err.message
+  return String(err)
+}
+
+function releaseNotesToText(notes: unknown) {
+  if (!notes) return null
+  if (typeof notes === 'string') return notes
+  if (Array.isArray(notes)) {
+    return notes
+      .map((item) => {
+        if (typeof item === 'string') return item
+        if (item && typeof item === 'object' && 'note' in item) {
+          return String((item as { note?: unknown }).note ?? '')
+        }
+        return ''
+      })
+      .filter(Boolean)
+      .join('\n\n')
+  }
+  return null
+}
+
+function updateInfoPatch(info: UpdateInfo): Partial<UpdateState> {
+  return {
+    availableVersion: info.version,
+    releaseName: info.releaseName ?? null,
+    releaseNotes: releaseNotesToText(info.releaseNotes),
+  }
+}
+
+function setUpdateState(patch: Partial<UpdateState>) {
+  updateState = {
+    ...updateState,
+    ...patch,
+    currentVersion: app.getVersion(),
+    isPackaged: app.isPackaged,
+  }
+  uiView?.webContents.send('updates:state', updateState)
+  return updateState
+}
+
+function updateNotificationLabels(kind: 'available' | 'downloaded', version?: string) {
+  if (settings.language === 'zh') {
+    return kind === 'available'
+      ? {
+          title: '发现新版本',
+          body: version ? `Slide Web ${version} 可用，点击打开设置下载。` : '新版本可用，点击打开设置下载。',
+        }
+      : {
+          title: '更新已下载',
+          body: '点击打开设置，重启并安装新版本。',
+        }
+  }
+
+  return kind === 'available'
+    ? {
+        title: 'Update available',
+        body: version
+          ? `Slide Web ${version} is available. Click to open Settings and download it.`
+          : 'A new version is available. Click to open Settings and download it.',
+      }
+    : {
+        title: 'Update downloaded',
+        body: 'Click to open Settings, then restart and install the update.',
+      }
+}
+
+function showUpdateNotification(kind: 'available' | 'downloaded', version?: string) {
+  if (!Notification.isSupported()) return
+  const labels = updateNotificationLabels(kind, version)
+  const notification = new Notification(labels)
+  notification.on('click', openSettingsFromTray)
+  notification.show()
+}
+
+function notifyUpdateAvailable(info: UpdateInfo) {
+  if (lastNotifiedUpdateVersion === info.version) return
+  lastNotifiedUpdateVersion = info.version
+  showUpdateNotification('available', info.version)
+}
+
+function configureAutoUpdater() {
+  if (updaterReady) return
+  updaterReady = true
+
+  log.initialize()
+  log.transports.file.level = 'info'
+  autoUpdater.logger = log
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.allowPrerelease = false
+  autoUpdater.setFeedURL(UPDATE_FEED)
+
+  autoUpdater.on('checking-for-update', () => {
+    setUpdateState({
+      status: 'checking',
+      availableVersion: undefined,
+      releaseName: null,
+      releaseNotes: null,
+      percent: undefined,
+      error: undefined,
+    })
+  })
+  autoUpdater.on('update-available', (info: UpdateInfo) => {
+    setUpdateState({
+      status: 'available',
+      ...updateInfoPatch(info),
+      percent: undefined,
+      error: undefined,
+    })
+    notifyUpdateAvailable(info)
+  })
+  autoUpdater.on('update-not-available', (info: UpdateInfo) => {
+    setUpdateState({
+      status: 'not-available',
+      ...updateInfoPatch(info),
+      percent: undefined,
+      error: undefined,
+    })
+  })
+  autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+    setUpdateState({
+      status: 'downloading',
+      percent: Math.max(0, Math.min(100, Math.round(progress.percent))),
+      error: undefined,
+    })
+  })
+  autoUpdater.on('update-downloaded', (info: UpdateDownloadedEvent) => {
+    setUpdateState({
+      status: 'downloaded',
+      ...updateInfoPatch(info),
+      percent: 100,
+      error: undefined,
+    })
+    showUpdateNotification('downloaded', info.version)
+  })
+  autoUpdater.on('error', (err: Error) => {
+    setUpdateState({
+      status: 'error',
+      error: errorMessage(err),
+    })
+  })
+}
+
+function unsupportedUpdateState() {
+  return setUpdateState({
+    status: 'unsupported',
+    availableVersion: undefined,
+    releaseName: null,
+    releaseNotes: null,
+    percent: undefined,
+    error: 'Updates are available after installing a packaged build.',
+  })
+}
+
+function ensureUpdaterSupported() {
+  if (!app.isPackaged) {
+    unsupportedUpdateState()
+    return false
+  }
+  configureAutoUpdater()
+  return true
+}
+
+async function checkForUpdates() {
+  if (!ensureUpdaterSupported()) return updateState
+  try {
+    setUpdateState({
+      status: 'checking',
+      availableVersion: undefined,
+      releaseName: null,
+      releaseNotes: null,
+      percent: undefined,
+      error: undefined,
+    })
+    await autoUpdater.checkForUpdates()
+  } catch (err) {
+    setUpdateState({ status: 'error', error: errorMessage(err) })
+  }
+  return updateState
+}
+
+async function downloadUpdate() {
+  if (!ensureUpdaterSupported()) return updateState
+  if (updateState.status !== 'available') return updateState
+  try {
+    setUpdateState({ status: 'downloading', percent: 0, error: undefined })
+    await autoUpdater.downloadUpdate()
+  } catch (err) {
+    setUpdateState({ status: 'error', error: errorMessage(err) })
+  }
+  return updateState
+}
+
+function installUpdate() {
+  if (!app.isPackaged || updateState.status !== 'downloaded') return
+  autoUpdater.quitAndInstall(false, true)
+}
+
+function scheduleStartupUpdateCheck() {
+  if (!app.isPackaged) {
+    unsupportedUpdateState()
+    return
+  }
+  configureAutoUpdater()
+  setTimeout(() => {
+    void checkForUpdates()
+  }, 5000)
+  if (!updateCheckTimer) {
+    updateCheckTimer = setInterval(() => {
+      if (updateState.status === 'checking' || updateState.status === 'downloading' || updateState.status === 'downloaded') {
+        return
+      }
+      void checkForUpdates()
+    }, UPDATE_CHECK_INTERVAL)
+  }
 }
 
 function deElectronUA(view: WebContentsView) {
@@ -1037,6 +1275,10 @@ function setupIpc() {
   })
   ipcMain.handle('dialog:open', () => setDialog(true))
   ipcMain.handle('dialog:close', () => setDialog(false))
+  ipcMain.handle('updates:getState', () => updateState)
+  ipcMain.handle('updates:check', () => checkForUpdates())
+  ipcMain.handle('updates:download', () => downloadUpdate())
+  ipcMain.handle('updates:install', () => installUpdate())
   ipcMain.handle('window:hide', () => hide())
   ipcMain.handle('app:quit', () => quitApp())
 }
@@ -1056,6 +1298,7 @@ if (!gotLock) {
     setupIpc()
     createWindow()
     createTray()
+    scheduleStartupUpdateCheck()
 
     const ok = globalShortcut.register(settings.toggleHotkey, toggleVisible)
     if (!ok) {
@@ -1084,6 +1327,10 @@ if (!gotLock) {
   })
   app.on('will-quit', () => {
     globalShortcut.unregisterAll()
+    if (updateCheckTimer) {
+      clearInterval(updateCheckTimer)
+      updateCheckTimer = null
+    }
     tray?.destroy()
     tray = null
   })

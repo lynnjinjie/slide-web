@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { NavigationState, PreviewInfo, SlideWebAPI, Tab } from '../shared/types'
+import type { NavigationState, PreviewInfo, SlideWebAPI, Tab, UpdateState } from '../shared/types'
 
 const api: SlideWebAPI = {
   getTabs: () => ipcRenderer.invoke('tabs:get'),
@@ -26,6 +26,10 @@ const api: SlideWebAPI = {
   pinPreview: (info) => ipcRenderer.invoke('preview:pin', info),
   openDialog: () => ipcRenderer.invoke('dialog:open'),
   closeDialog: () => ipcRenderer.invoke('dialog:close'),
+  getUpdateState: () => ipcRenderer.invoke('updates:getState'),
+  checkForUpdates: () => ipcRenderer.invoke('updates:check'),
+  downloadUpdate: () => ipcRenderer.invoke('updates:download'),
+  installUpdate: () => ipcRenderer.invoke('updates:install'),
   hide: () => ipcRenderer.invoke('window:hide'),
   quit: () => ipcRenderer.invoke('app:quit'),
   onTabsChanged: (cb) => {
@@ -47,6 +51,11 @@ const api: SlideWebAPI = {
     const handler = () => cb()
     ipcRenderer.on('settings:show', handler)
     return () => ipcRenderer.off('settings:show', handler)
+  },
+  onUpdateStateChanged: (cb) => {
+    const handler = (_e: Electron.IpcRendererEvent, state: UpdateState) => cb(state)
+    ipcRenderer.on('updates:state', handler)
+    return () => ipcRenderer.off('updates:state', handler)
   },
   onPreviewShow: (cb) => {
     const handler = (_e: Electron.IpcRendererEvent, info: PreviewInfo) => cb(info)

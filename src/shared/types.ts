@@ -33,6 +33,27 @@ export interface NavigationState {
   canGoForward: boolean
 }
 
+export type UpdateStatus =
+  | 'idle'
+  | 'unsupported'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+export interface UpdateState {
+  status: UpdateStatus
+  currentVersion: string
+  isPackaged: boolean
+  availableVersion?: string
+  releaseName?: string | null
+  releaseNotes?: string | null
+  percent?: number
+  error?: string
+}
+
 export interface SlideWebAPI {
   getTabs: () => Promise<Tab[]>
   getActiveTabId: () => Promise<string | null>
@@ -58,12 +79,17 @@ export interface SlideWebAPI {
   pinPreview: (info: PreviewInfo) => Promise<void>
   openDialog: () => Promise<void>
   closeDialog: () => Promise<void>
+  getUpdateState: () => Promise<UpdateState>
+  checkForUpdates: () => Promise<UpdateState>
+  downloadUpdate: () => Promise<UpdateState>
+  installUpdate: () => Promise<void>
   hide: () => Promise<void>
   quit: () => Promise<void>
   onTabsChanged: (cb: (tabs: Tab[]) => void) => () => void
   onActiveTabChanged: (cb: (id: string | null) => void) => () => void
   onNavigationChanged: (cb: (state: NavigationState) => void) => () => void
   onSettingsShow: (cb: () => void) => () => void
+  onUpdateStateChanged: (cb: (state: UpdateState) => void) => () => void
   onPreviewShow: (cb: (info: PreviewInfo) => void) => () => void
   onSearchCompleted: (cb: () => void) => () => void
 }

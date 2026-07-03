@@ -1,6 +1,6 @@
 {
   "name": "slide-web",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "description": "A slide-over web companion for macOS and Windows",
@@ -17,6 +17,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "electron-log": "^5.4.4",
+    "electron-updater": "^6.8.9",
     "react": "^18.3.0",
     "react-dom": "^18.3.0"
   },
@@ -40,6 +42,14 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "lynnjinjie",
+        "repo": "slide-web",
+        "releaseType": "release"
+      }
+    ],
     "files": [
       "out/**/*",
       "build/icon.png",

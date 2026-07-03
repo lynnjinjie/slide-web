@@ -12,6 +12,7 @@ import type {
   SearchEngine,
   Settings,
   Tab,
+  UpdateState,
 } from '../../shared/types'
 
 const INITIAL_NAVIGATION: NavigationState = {
@@ -26,6 +27,7 @@ export default function App() {
   const [addbarOpen, setAddbarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settings, setSettings] = useState<Settings | null>(null)
+  const [updateState, setUpdateState] = useState<UpdateState | null>(null)
   const [preview, setPreview] = useState<PreviewInfo | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<Tab | null>(null)
@@ -37,12 +39,14 @@ export default function App() {
       window.slideweb.getActiveTabId(),
       window.slideweb.getNavigationState(),
       window.slideweb.getSettings(),
-    ]).then(([t, a, n, s]) => {
+      window.slideweb.getUpdateState(),
+    ]).then(([t, a, n, s, u]) => {
       if (cancelled) return
       setTabs(t)
       setActiveId(a)
       setNavigation(n)
       setSettings(s)
+      setUpdateState(u)
     })
     const off1 = window.slideweb.onTabsChanged(setTabs)
     const off2 = window.slideweb.onActiveTabChanged(setActiveId)
@@ -54,12 +58,13 @@ export default function App() {
       setPreview(null)
       setSettingsOpen(true)
     })
-    const off5 = window.slideweb.onPreviewShow((info) => {
+    const off5 = window.slideweb.onUpdateStateChanged(setUpdateState)
+    const off6 = window.slideweb.onPreviewShow((info) => {
       setPreview(info)
       setPreviewOpen(true)
       window.slideweb.openPreview()
     })
-    const off6 = window.slideweb.onSearchCompleted(() => {
+    const off7 = window.slideweb.onSearchCompleted(() => {
       setAddbarOpen(false)
       setPreviewOpen(false)
       setPreview(null)
@@ -72,6 +77,7 @@ export default function App() {
       off4()
       off5()
       off6()
+      off7()
     }
   }, [])
 
@@ -195,6 +201,18 @@ export default function App() {
     window.slideweb.goForward()
   }, [closeVisibleOverlays])
 
+  const checkForUpdates = useCallback(async () => {
+    setUpdateState(await window.slideweb.checkForUpdates())
+  }, [])
+
+  const downloadUpdate = useCallback(async () => {
+    setUpdateState(await window.slideweb.downloadUpdate())
+  }, [])
+
+  const installUpdate = useCallback(() => {
+    window.slideweb.installUpdate()
+  }, [])
+
   const hideHint = useMemo(
     () => (settings ? prettifyAccelerator(settings.toggleHotkey).join(' ') : '⌘⇧\\'),
     [settings],
@@ -306,6 +324,10 @@ export default function App() {
           onClose={closeSettings}
           onChange={setSettings}
           onQuit={() => window.slideweb.quit()}
+          updateState={updateState}
+          onCheckUpdates={checkForUpdates}
+          onDownloadUpdate={downloadUpdate}
+          onInstallUpdate={installUpdate}
         />
         <PreviewPopup open={previewOpen} info={preview} onPin={pinPreview} onClose={closePreview} />
         <RemoveTabDialog

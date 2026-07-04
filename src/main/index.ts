@@ -81,7 +81,8 @@ let moveEndTimer: NodeJS.Timeout | null = null
 const EDGE_WAKE_INTERVAL = 120
 const EDGE_WAKE_MARGIN = 6
 const EDGE_WAKE_VERTICAL_SLOP = 8
-const UPDATE_CHECK_INTERVAL = 6 * 60 * 60 * 1000
+const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000
+const STARTUP_UPDATE_CHECK_DELAY = 60 * 1000
 const UPDATE_FEED = {
   provider: 'github' as const,
   owner: 'lynnjinjie',
@@ -807,7 +808,7 @@ function scheduleStartupUpdateCheck() {
   configureAutoUpdater()
   setTimeout(() => {
     void checkForUpdates()
-  }, 5000)
+  }, STARTUP_UPDATE_CHECK_DELAY)
   if (!updateCheckTimer) {
     updateCheckTimer = setInterval(() => {
       if (updateState.status === 'checking' || updateState.status === 'downloading' || updateState.status === 'downloaded') {

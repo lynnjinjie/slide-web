@@ -217,6 +217,7 @@ export default function App() {
     () => (settings ? prettifyAccelerator(settings.toggleHotkey).join(' ') : '⌘⇧\\'),
     [settings],
   )
+  const hasPendingUpdate = updateState?.status === 'available' || updateState?.status === 'downloaded'
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -300,6 +301,7 @@ export default function App() {
         onHide={() => window.slideweb.hide()}
         onSettings={openSettings}
         settingsActive={settingsOpen}
+        updateAvailable={hasPendingUpdate}
       />
       <div className="content-area">
         {isEmpty && !addbarOpen && !settingsOpen && <EmptyState onAdd={openAddBar} />}

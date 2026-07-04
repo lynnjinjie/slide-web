@@ -17,6 +17,7 @@ interface Props {
   onHide: () => void
   onSettings: () => void
   settingsActive: boolean
+  updateAvailable: boolean
 }
 
 type FloatingTooltip = {
@@ -40,6 +41,7 @@ export function TabRail({
   onHide,
   onSettings,
   settingsActive,
+  updateAvailable,
 }: Props) {
   const t = useT()
   const [floatingTooltip, setFloatingTooltip] = useState<FloatingTooltip | null>(null)
@@ -126,7 +128,7 @@ export function TabRail({
       </button>
       <button
         ref={settingsButtonRef}
-        className={`rail__settings${settingsActive ? ' rail__settings--active' : ''}`}
+        className={`rail__settings${settingsActive ? ' rail__settings--active' : ''}${updateAvailable ? ' rail__settings--update' : ''}`}
         onClick={(e) => {
           setFloatingTooltip(null)
           e.currentTarget.focus()
@@ -136,6 +138,7 @@ export function TabRail({
         aria-pressed={settingsActive}
       >
         <GearKey />
+        {updateAvailable ? <span className="rail__update-dot" aria-hidden /> : null}
         <Tooltip text={t('rail.settings')} />
       </button>
       {floatingTooltip ? <RailTooltip tooltip={floatingTooltip} /> : null}

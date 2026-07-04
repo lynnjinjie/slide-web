@@ -355,6 +355,16 @@ button { font: inherit; }
   background: linear-gradient(180deg, var(--amber-soft) 0%, var(--amber) 50%, var(--amber-soft) 100%);
   box-shadow: 0 0 8px var(--amber-glow);
 }
+.rail__update-dot {
+  position: absolute;
+  top: 4px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--amber);
+  box-shadow: 0 0 0 2px var(--bg-base), 0 0 10px var(--amber-glow);
+}
 
 /* ────────── Tooltip ────────── */
 .tooltip {

@@ -2,9 +2,8 @@ name: Release
 
 on:
   push:
-    branches:
-      - main
-      - master
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
@@ -158,6 +157,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download package artifacts
         uses: actions/download-artifact@v4
@@ -169,20 +170,134 @@ jobs:
         shell: bash
         run: find release-assets -maxdepth 2 -type f -print
 
-      - name: Create release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
+      - name: Resolve release version
+        id: version
         shell: bash
         run: |
           set -euo pipefail
 
           version="$(node -p "require('./package.json').version")"
-          tag="v${version}"
-          title="SlideWeb v${version}"
+          expected_tag="v${version}"
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+            if [ "$tag" != "$expected_tag" ]; then
+              echo "Tag $tag does not match package version $expected_tag" >&2
+              exit 1
+            fi
+          else
+            tag="$expected_tag"
+          fi
+          title="SlideWeb ${tag}"
+          previous_tag="$(git tag --list 'v*' --sort=-v:refname | grep -v "^${tag}$" | head -n 1 || true)"
 
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release delete "$tag" --cleanup-tag --yes
+          {
+            echo "version=${version}"
+            echo "tag=${tag}"
+            echo "title=${title}"
+            echo "previous_tag=${previous_tag}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          PREVIOUS_TAG: ${{ steps.version.outputs.previous_tag }}
+        run: |
+          set -euo pipefail
+
+          range="${TAG}"
+          full_changelog_url="https://github.com/${GITHUB_REPOSITORY}/releases/tag/${TAG}"
+          if [ -n "${PREVIOUS_TAG}" ]; then
+            range="${PREVIOUS_TAG}..${TAG}"
+            full_changelog_url="https://github.com/${GITHUB_REPOSITORY}/compare/${PREVIOUS_TAG}...${TAG}"
+          fi
+
+          notes_file="$RUNNER_TEMP/release-notes.md"
+          commits_file="$RUNNER_TEMP/release-commits.tsv"
+          used_file="$RUNNER_TEMP/release-used-shas.txt"
+          git log --format='%H%x09%s' "$range" > "$commits_file"
+          : > "$used_file"
+
+          write_section() {
+            local title="$1"
+            local pattern="$2"
+            local strip_prefix="$3"
+            local tmp_file="$RUNNER_TEMP/section-${title// /-}.md"
+            : > "$tmp_file"
+
+            while IFS=$'\t' read -r sha subject; do
+              [ -n "$sha" ] || continue
+              if grep -qx "$sha" "$used_file"; then
+                continue
+              fi
+              if [[ "$subject" =~ $pattern ]]; then
+                short="${sha:0:7}"
+                clean="$subject"
+                if [ "$strip_prefix" = "true" ]; then
+                  clean="$(printf '%s' "$clean" | sed -E 's/^[A-Za-z]+(\([^)]+\))?!?:[[:space:]]*//')"
+                fi
+                printf -- '- %s ([%s](https://github.com/%s/commit/%s))\n' "$clean" "$short" "$GITHUB_REPOSITORY" "$sha" >> "$tmp_file"
+                echo "$sha" >> "$used_file"
+              fi
+            done < "$commits_file"
+
+            if [ -s "$tmp_file" ]; then
+              {
+                printf '## %s\n\n' "$title"
+                cat "$tmp_file"
+                printf '\n'
+              } >> "$notes_file"
+            fi
+          }
+
+          : > "$notes_file"
+          write_section "Features" '^(feat|feature)(\([^)]+\))?!?:|^[Ii]mplement |^[Aa]dd (in-app|app|application|settings|GitHub|release|search|support|icon)' "true"
+          write_section "Bug Fixes" '^(fix)(\([^)]+\))?!?:|^[Ff]ix ' "true"
+          write_section "Build" '^(build|ci)(\([^)]+\))?!?:|^[Rr]elease |workflow|package|packaged|signing|tag' "true"
+          write_section "Documentation" '^(docs?)(\([^)]+\))?!?:|README|CHANGELOG|changelog|document' "true"
+          write_section "Refactoring" '^(refactor)(\([^)]+\))?!?:' "true"
+          write_section "Styles" '^(style)(\([^)]+\))?!?:|style|UI|icon' "true"
+
+          other_file="$RUNNER_TEMP/section-other.md"
+          : > "$other_file"
+          while IFS=$'\t' read -r sha subject; do
+            [ -n "$sha" ] || continue
+            if grep -qx "$sha" "$used_file"; then
+              continue
+            fi
+            short="${sha:0:7}"
+            printf -- '- %s ([%s](https://github.com/%s/commit/%s))\n' "$subject" "$short" "$GITHUB_REPOSITORY" "$sha" >> "$other_file"
+          done < "$commits_file"
+
+          if [ -s "$other_file" ]; then
+            {
+              printf '## Other Changes\n\n'
+              cat "$other_file"
+              printf '\n'
+            } >> "$notes_file"
+          fi
+
+          {
+            printf '**Full Changelog**: [%s...%s](%s)\n' "${PREVIOUS_TAG:-initial}" "$TAG" "$full_changelog_url"
+          } >> "$notes_file"
+
+          cat "$notes_file"
+          echo "file=$notes_file" >> "$GITHUB_OUTPUT"
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.version.outputs.tag }}
+          TITLE: ${{ steps.version.outputs.title }}
+          RELEASE_NOTES_FILE: ${{ steps.notes.outputs.file }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete "$TAG" --cleanup-tag --yes
           fi
 
           mapfile -d '' files < <(find release-assets -type f -print0)
@@ -191,8 +306,8 @@ jobs:
             exit 1
           fi
 
-          gh release create "$tag" "${files[@]}" \
+          gh release create "$TAG" "${files[@]}" \
             --target "$GITHUB_SHA" \
-            --title "$title" \
-            --notes "Automated release for v${version} (${GITHUB_SHA})." \
+            --title "$TITLE" \
+            --notes-file "$RELEASE_NOTES_FILE" \
             --latest

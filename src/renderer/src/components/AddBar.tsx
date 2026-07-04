@@ -123,7 +123,7 @@ export function AddBar({
 
   return (
     <div className="addbar" data-open={open}>
-      <span className="addbar__brand">Slide Web</span>
+      <span className="addbar__brand">SlideWeb</span>
       <p className="addbar__prompt">
         {t('addbar.prompt.beforeEm').split('\n').map((line, i, arr) => (
           <span key={i}>

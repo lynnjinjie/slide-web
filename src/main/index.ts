@@ -480,16 +480,16 @@ function getTrayIcon() {
 function trayLabels() {
   if (settings.language === 'zh') {
     return {
-      open: '打开 Slide Web',
+      open: '打开 SlideWeb',
       settings: '打开设置',
-      quit: '退出 Slide Web',
+      quit: '退出 SlideWeb',
     }
   }
 
   return {
-    open: 'Open Slide Web',
+    open: 'Open SlideWeb',
     settings: 'Open Settings',
-    quit: 'Quit Slide Web',
+    quit: 'Quit SlideWeb',
   }
 }
 
@@ -522,7 +522,7 @@ function refreshTrayMenu() {
     { type: 'separator' },
     { label: labels.quit, click: () => void quitApp() },
   ])
-  tray.setToolTip('Slide Web')
+  tray.setToolTip('SlideWeb')
   tray.setContextMenu(menu)
 }
 
@@ -643,7 +643,7 @@ function updateNotificationLabels(kind: 'available' | 'downloaded', version?: st
     return kind === 'available'
       ? {
           title: '发现新版本',
-          body: version ? `Slide Web ${version} 可用，点击打开设置下载。` : '新版本可用，点击打开设置下载。',
+          body: version ? `SlideWeb ${version} 可用，点击打开设置下载。` : '新版本可用，点击打开设置下载。',
         }
       : {
           title: '更新已下载',
@@ -655,7 +655,7 @@ function updateNotificationLabels(kind: 'available' | 'downloaded', version?: st
     ? {
         title: 'Update available',
         body: version
-          ? `Slide Web ${version} is available. Click to open Settings and download it.`
+          ? `SlideWeb ${version} is available. Click to open Settings and download it.`
           : 'A new version is available. Click to open Settings and download it.',
       }
     : {

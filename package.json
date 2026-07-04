@@ -36,7 +36,7 @@
   },
   "build": {
     "appId": "com.jjj.slideweb",
-    "productName": "Slide Web",
+    "productName": "SlideWeb",
     "icon": "build/icon.png",
     "artifactName": "${productName}-${version}-${os}-${arch}.${ext}",
     "directories": {

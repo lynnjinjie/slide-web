@@ -4,12 +4,12 @@ GitHub Actions can build ad-hoc signed macOS artifacts without Apple secrets, bu
 public macOS releases still need Developer ID signing and Apple notarization to
 open without Gatekeeper prompts.
 
-If a downloaded macOS build shows `"Slide Web.app" is damaged and can't be
+If a downloaded macOS build shows `"SlideWeb.app" is damaged and can't be
 opened`, the app is usually blocked by quarantine/Gatekeeper rather than
 actually corrupted. For local testing of an unsigned or ad-hoc signed build, run:
 
 ```bash
-xattr -dr com.apple.quarantine "/Applications/Slide Web.app"
+xattr -dr com.apple.quarantine "/Applications/SlideWeb.app"
 ```
 
 For public distribution without manual overrides, configure these repository

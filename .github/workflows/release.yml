@@ -179,7 +179,7 @@ jobs:
 
           version="$(node -p "require('./package.json').version")"
           tag="v${version}"
-          title="Slide Web v${version}"
+          title="SlideWeb v${version}"
 
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release delete "$tag" --cleanup-tag --yes

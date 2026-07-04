@@ -9,7 +9,7 @@ export function EmptyState({ onAdd }: Props) {
   return (
     <div className="empty">
       <div className="empty__inner">
-        <span className="empty__eyebrow">Slide Web</span>
+        <span className="empty__eyebrow">SlideWeb</span>
         <h1 className="empty__title">
           {t('empty.title.line1')}
           <br />

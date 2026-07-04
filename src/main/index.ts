@@ -15,6 +15,7 @@ import log from 'electron-log/main'
 import { autoUpdater, type ProgressInfo, type UpdateDownloadedEvent, type UpdateInfo } from 'electron-updater'
 import path from 'node:path'
 import fs from 'node:fs/promises'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 import type {
@@ -539,9 +540,31 @@ function createTray() {
 }
 
 /* ────── app updates ────── */
+function manualMacUpdateMessage() {
+  return settings.language === 'zh'
+    ? '当前安装的 macOS 应用不是 Developer ID 正式签名版本，无法通过应用内自动更新。请从 GitHub Releases 手动下载并安装新版；配置 Developer ID 签名后，后续版本才能应用内更新。'
+    : 'The installed macOS app is not signed with a Developer ID certificate, so in-app updates cannot be installed. Download and install the latest version manually from GitHub Releases; future in-app updates require Developer ID signing.'
+}
+
 function errorMessage(err: unknown) {
-  if (err instanceof Error) return err.message
-  return String(err)
+  const message = err instanceof Error ? err.message : String(err)
+  if (/code signature|did not pass validation|specified code requirement/i.test(message)) {
+    return manualMacUpdateMessage()
+  }
+  return message
+}
+
+function currentMacAppBundlePath() {
+  if (process.platform !== 'darwin') return null
+  return path.resolve(process.execPath, '../../..')
+}
+
+function isCurrentMacAppDeveloperIdSigned() {
+  const appPath = currentMacAppBundlePath()
+  if (!appPath) return true
+  const result = spawnSync('codesign', ['-dv', '--verbose=4', appPath], { encoding: 'utf8' })
+  const details = `${result.stdout ?? ''}\n${result.stderr ?? ''}`
+  return result.status === 0 && /Authority=Developer ID Application:/i.test(details)
 }
 
 function decodeHtmlEntities(text: string) {
@@ -787,6 +810,13 @@ async function downloadUpdate() {
   if (updateState.status !== 'available') return updateState
   try {
     await ensureUpdateConfigFile()
+    if (process.platform === 'darwin' && !isCurrentMacAppDeveloperIdSigned()) {
+      return setUpdateState({
+        status: 'error',
+        percent: undefined,
+        error: manualMacUpdateMessage(),
+      })
+    }
     setUpdateState({ status: 'downloading', percent: 0, error: undefined })
     await autoUpdater.downloadUpdate()
   } catch (err) {

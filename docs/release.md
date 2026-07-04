@@ -38,3 +38,14 @@ Alternatively, use Apple ID credentials:
 If signing or notarization secrets are missing, the workflow still builds macOS
 artifacts with an ad-hoc signature and prints a warning that the release is not
 Developer ID signed or notarized.
+
+## macOS In-App Updates
+
+macOS in-app updates use Squirrel.Mac, which validates the downloaded `.app`
+against the currently installed app's code signature. Both the installed app and
+the update must be signed with a compatible Developer ID certificate.
+
+Ad-hoc signed or unsigned macOS builds can be installed manually, but they cannot
+reliably update themselves in-app. Users on those builds should download and
+install the next release manually. After a Developer ID signed build is installed,
+future signed releases can be installed through the app update flow.

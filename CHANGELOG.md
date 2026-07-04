@@ -3,6 +3,13 @@
 All notable changes to this project are documented here.
 This file follows the versioned format used by GitHub Releases and Conventional Commits-style sections.
 
+## [v1.0.3](https://github.com/lynnjinjie/slide-web/compare/v1.0.2...v1.0.3) - 2026-07-04
+
+### Bug Fixes
+
+- show a friendly manual-install message when macOS in-app updates cannot pass Developer ID signature validation
+- document that macOS in-app updates require compatible Developer ID signing
+
 ## [v1.0.2](https://github.com/lynnjinjie/slide-web/compare/v1.0.1...v1.0.2) - 2026-07-04
 
 ### Features

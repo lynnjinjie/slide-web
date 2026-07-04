@@ -11,6 +11,7 @@ export interface Settings {
   toggleHotkey: string // Electron accelerator string, e.g. "CommandOrControl+Shift+\\"
   language: Language
   edgeWakeEnabled: boolean
+  autoHideOnBlur: boolean
 }
 
 export type SearchEngine = 'google' | 'baidu'
@@ -71,6 +72,7 @@ export interface SlideWebAPI {
   setHotkey: (hotkey: string) => Promise<{ ok: boolean; error?: string }>
   setLanguage: (language: Language) => Promise<void>
   setEdgeWakeEnabled: (enabled: boolean) => Promise<void>
+  setAutoHideOnBlur: (enabled: boolean) => Promise<void>
   startSearch: (engine: SearchEngine, query: string) => Promise<void>
   setSearchBounds: (bounds: SearchBounds | null) => Promise<void>
   exitSearch: () => Promise<void>

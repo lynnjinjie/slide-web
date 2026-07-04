@@ -59,10 +59,12 @@ let searchPopupBounds: SearchBounds | null = null
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+\\'
 const DEFAULT_EDGE_WAKE_ENABLED = true
+const DEFAULT_AUTO_HIDE_ON_BLUR = false
 let settings: Settings = {
   toggleHotkey: DEFAULT_HOTKEY,
   language: 'en',
   edgeWakeEnabled: DEFAULT_EDGE_WAKE_ENABLED,
+  autoHideOnBlur: DEFAULT_AUTO_HIDE_ON_BLUR,
 }
 let updateState: UpdateState = {
   status: 'idle',
@@ -109,7 +111,7 @@ type StoreShape = {
   tabs?: Tab[]
   activeTabId?: string | null
   window?: WindowState
-  settings?: Settings
+  settings?: Partial<Settings> & { autoHideOnMouseLeave?: boolean }
   size?: { width: number; height: number } // legacy
 }
 
@@ -157,6 +159,13 @@ async function loadStore() {
       settings.edgeWakeEnabled = data.settings.edgeWakeEnabled
     } else {
       settings.edgeWakeEnabled = DEFAULT_EDGE_WAKE_ENABLED
+    }
+    if (typeof data.settings?.autoHideOnBlur === 'boolean') {
+      settings.autoHideOnBlur = data.settings.autoHideOnBlur
+    } else if (typeof data.settings?.autoHideOnMouseLeave === 'boolean') {
+      settings.autoHideOnBlur = data.settings.autoHideOnMouseLeave
+    } else {
+      settings.autoHideOnBlur = DEFAULT_AUTO_HIDE_ON_BLUR
     }
   } catch {
     tabs = []
@@ -409,6 +418,11 @@ function createWindow() {
     windowState.y = b.y
     if (moveEndTimer) clearTimeout(moveEndTimer)
     moveEndTimer = setTimeout(onDragEnd, MOVE_END_DELAY)
+  })
+
+  win.on('blur', () => {
+    if (!settings.autoHideOnBlur || !isVisible || animating) return
+    hide()
   })
 
   // ── UI WebContentsView (rail + addbar + empty state)
@@ -1149,6 +1163,11 @@ function applyEdgeWake(enabled: boolean) {
   else stopEdgeWakeWatcher()
 }
 
+function applyAutoHideOnBlur(enabled: boolean) {
+  settings.autoHideOnBlur = enabled
+  saveStore()
+}
+
 /* ────── show/hide with slide animation ────── */
 const SHOW_DURATION = 240
 const HIDE_DURATION = 200
@@ -1190,6 +1209,7 @@ function show() {
     // Free-floating: behave like a normal app. No slide, restore last position.
     win.setBounds(target)
     win.show()
+    win.focus()
     isVisible = true
     return
   }
@@ -1198,6 +1218,7 @@ function show() {
   animating = true
   win.setBounds({ x: hiddenX(), y: target.y, width: target.width, height: target.height })
   win.show()
+  win.focus()
   isVisible = true
   animateX(target.x, SHOW_DURATION, () => {
     animating = false
@@ -1259,6 +1280,9 @@ function setupIpc() {
   })
   ipcMain.handle('settings:setEdgeWakeEnabled', (_e, enabled: boolean) => {
     applyEdgeWake(Boolean(enabled))
+  })
+  ipcMain.handle('settings:setAutoHideOnBlur', (_e, enabled: boolean) => {
+    applyAutoHideOnBlur(Boolean(enabled))
   })
   ipcMain.handle(
     'search:start',

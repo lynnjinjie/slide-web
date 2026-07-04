@@ -19,6 +19,7 @@ const DEFAULT_SETTINGS: Settings = {
   toggleHotkey: DEFAULT_HOTKEY,
   language: 'en',
   edgeWakeEnabled: true,
+  autoHideOnBlur: false,
 }
 
 const isMac =
@@ -71,8 +72,17 @@ export function SettingsPanel({
     [onChange, settings],
   )
 
+  const applyAutoHideOnBlur = useCallback(
+    async (enabled: boolean) => {
+      await window.slideweb.setAutoHideOnBlur(enabled)
+      onChange({ ...(settings ?? DEFAULT_SETTINGS), autoHideOnBlur: enabled })
+    },
+    [onChange, settings],
+  )
+
   const currentLang: Language = settings?.language ?? 'en'
   const edgeWakeEnabled = settings?.edgeWakeEnabled ?? DEFAULT_SETTINGS.edgeWakeEnabled
+  const autoHideOnBlur = settings?.autoHideOnBlur ?? DEFAULT_SETTINGS.autoHideOnBlur
   const updateStatus = updateState?.status ?? 'idle'
   const updateAction = getUpdateAction(updateState)
   const updateActionDisabled = updateStatus === 'checking' || updateStatus === 'downloading' || updateStatus === 'unsupported'
@@ -155,6 +165,31 @@ export function SettingsPanel({
               onClick={() => applyEdgeWake(false)}
             >
               {t('settings.edgeWake.off')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="settings__field">
+        <div className="settings__row">
+          <div className="settings__label">
+            <span className="settings__label-name">{t('settings.autoHide.name')}</span>
+            <span className="settings__label-desc">{t('settings.autoHide.desc')}</span>
+          </div>
+          <div className="settings__seg">
+            <button
+              type="button"
+              className={autoHideOnBlur ? 'on' : ''}
+              onClick={() => applyAutoHideOnBlur(true)}
+            >
+              {t('settings.autoHide.on')}
+            </button>
+            <button
+              type="button"
+              className={!autoHideOnBlur ? 'on' : ''}
+              onClick={() => applyAutoHideOnBlur(false)}
+            >
+              {t('settings.autoHide.off')}
             </button>
           </div>
         </div>

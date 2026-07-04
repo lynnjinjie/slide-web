@@ -18,6 +18,7 @@ const api: SlideWebAPI = {
   setHotkey: (hotkey) => ipcRenderer.invoke('settings:setHotkey', hotkey),
   setLanguage: (language) => ipcRenderer.invoke('settings:setLanguage', language),
   setEdgeWakeEnabled: (enabled) => ipcRenderer.invoke('settings:setEdgeWakeEnabled', enabled),
+  setAutoHideOnBlur: (enabled) => ipcRenderer.invoke('settings:setAutoHideOnBlur', enabled),
   startSearch: (engine, query) => ipcRenderer.invoke('search:start', { engine, query }),
   setSearchBounds: (bounds) => ipcRenderer.invoke('search:setBounds', bounds),
   exitSearch: () => ipcRenderer.invoke('search:exit'),

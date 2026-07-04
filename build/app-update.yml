@@ -1,0 +1,4 @@
+provider: github
+owner: lynnjinjie
+repo: slide-web
+updaterCacheDirName: slide-web-updater

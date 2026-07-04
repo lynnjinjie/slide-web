@@ -25,6 +25,23 @@ const DEFAULT_SETTINGS: Settings = {
 const isMac =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
+function releaseNotesToText(notes?: string | null) {
+  if (!notes) return ''
+  const withoutTags = notes
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<(br|\/p|\/div|\/li|\/h[1-6]|\/tr)\b[^>]*>/gi, '\n')
+    .replace(/<li\b[^>]*>/gi, '- ')
+    .replace(/<[^>]+>/g, '')
+
+  const decoder = document.createElement('textarea')
+  decoder.innerHTML = withoutTags
+  return decoder.value
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export function SettingsPanel({
   open,
   settings,
@@ -92,6 +109,7 @@ export function SettingsPanel({
       : updateAction === 'download'
         ? onDownloadUpdate
         : onCheckUpdates
+  const releaseNotes = releaseNotesToText(updateState?.releaseNotes)
 
   return (
     <div className="settings" data-open={open}>
@@ -213,10 +231,10 @@ export function SettingsPanel({
             <span style={{ width: `${updateState?.percent ?? 0}%` }} />
           </div>
         ) : null}
-        {(updateStatus === 'available' || updateStatus === 'downloaded') && updateState?.releaseNotes ? (
+        {(updateStatus === 'available' || updateStatus === 'downloaded') && releaseNotes ? (
           <details className="settings__notes">
             <summary>{t('settings.update.releaseNotes')}</summary>
-            <p>{updateState.releaseNotes}</p>
+            <p>{releaseNotes}</p>
           </details>
         ) : null}
         <button

@@ -87,6 +87,7 @@ const UPDATE_FEED = {
   owner: 'lynnjinjie',
   repo: 'slide-web',
 }
+const UPDATE_CACHE_DIR_NAME = 'slide-web-updater'
 let edgeWakeTimer: NodeJS.Timeout | null = null
 let updateCheckTimer: NodeJS.Timeout | null = null
 
@@ -542,15 +543,52 @@ function errorMessage(err: unknown) {
   return String(err)
 }
 
+function decodeHtmlEntities(text: string) {
+  const named: Record<string, string> = {
+    amp: '&',
+    apos: "'",
+    gt: '>',
+    lt: '<',
+    nbsp: ' ',
+    quot: '"',
+  }
+  return text.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (match, entity: string) => {
+    const key = entity.toLowerCase()
+    if (key.startsWith('#x')) {
+      const codePoint = Number.parseInt(key.slice(2), 16)
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match
+    }
+    if (key.startsWith('#')) {
+      const codePoint = Number.parseInt(key.slice(1), 10)
+      return Number.isFinite(codePoint) ? String.fromCodePoint(codePoint) : match
+    }
+    return named[key] ?? match
+  })
+}
+
+function htmlToPlainText(value: string) {
+  return decodeHtmlEntities(
+    value
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<(br|\/p|\/div|\/li|\/h[1-6]|\/tr)\b[^>]*>/gi, '\n')
+      .replace(/<li\b[^>]*>/gi, '- ')
+      .replace(/<[^>]+>/g, '')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim(),
+  )
+}
+
 function releaseNotesToText(notes: unknown) {
   if (!notes) return null
-  if (typeof notes === 'string') return notes
+  if (typeof notes === 'string') return htmlToPlainText(notes)
   if (Array.isArray(notes)) {
     return notes
       .map((item) => {
-        if (typeof item === 'string') return item
+        if (typeof item === 'string') return htmlToPlainText(item)
         if (item && typeof item === 'object' && 'note' in item) {
-          return String((item as { note?: unknown }).note ?? '')
+          return htmlToPlainText(String((item as { note?: unknown }).note ?? ''))
         }
         return ''
       })
@@ -566,6 +604,27 @@ function updateInfoPatch(info: UpdateInfo): Partial<UpdateState> {
     releaseName: info.releaseName ?? null,
     releaseNotes: releaseNotesToText(info.releaseNotes),
   }
+}
+
+function updateConfigPath() {
+  return path.join(app.getPath('userData'), 'app-update.yml')
+}
+
+function updateConfigYml() {
+  return [
+    `provider: ${UPDATE_FEED.provider}`,
+    `owner: ${UPDATE_FEED.owner}`,
+    `repo: ${UPDATE_FEED.repo}`,
+    `updaterCacheDirName: ${UPDATE_CACHE_DIR_NAME}`,
+    '',
+  ].join('\n')
+}
+
+async function ensureUpdateConfigFile() {
+  const configPath = updateConfigPath()
+  autoUpdater.updateConfigPath = configPath
+  await fs.mkdir(path.dirname(configPath), { recursive: true })
+  await fs.writeFile(configPath, updateConfigYml(), 'utf-8')
 }
 
 function setUpdateState(patch: Partial<UpdateState>) {
@@ -629,6 +688,7 @@ function configureAutoUpdater() {
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true
   autoUpdater.allowPrerelease = false
+  autoUpdater.updateConfigPath = updateConfigPath()
   autoUpdater.setFeedURL(UPDATE_FEED)
 
   autoUpdater.on('checking-for-update', () => {
@@ -705,6 +765,7 @@ function ensureUpdaterSupported() {
 async function checkForUpdates() {
   if (!ensureUpdaterSupported()) return updateState
   try {
+    await ensureUpdateConfigFile()
     setUpdateState({
       status: 'checking',
       availableVersion: undefined,
@@ -724,6 +785,7 @@ async function downloadUpdate() {
   if (!ensureUpdaterSupported()) return updateState
   if (updateState.status !== 'available') return updateState
   try {
+    await ensureUpdateConfigFile()
     setUpdateState({ status: 'downloading', percent: 0, error: undefined })
     await autoUpdater.downloadUpdate()
   } catch (err) {

@@ -3,6 +3,17 @@
 All notable changes to this project are documented here.
 This file follows the versioned format used by GitHub Releases and Conventional Commits-style sections.
 
+## [v1.0.2](https://github.com/lynnjinjie/slide-web/compare/v1.0.1...v1.0.2) - 2026-07-04
+
+### Features
+
+- add a low-noise update reminder badge on the settings icon for available or downloaded updates ([efda73f](https://github.com/lynnjinjie/slide-web/commit/efda73f20948f174dc5c372974f7bc83fa475114))
+
+### Build
+
+- run the release workflow only after pushing version tags ([44d484e](https://github.com/lynnjinjie/slide-web/commit/44d484e50eaa9590bee4aa511172d3276926b8b1))
+- generate grouped changelog notes for GitHub Releases from commits between tags ([44d484e](https://github.com/lynnjinjie/slide-web/commit/44d484e50eaa9590bee4aa511172d3276926b8b1))
+
 ## [v1.0.1](https://github.com/lynnjinjie/slide-web/compare/v1.0.0...v1.0.1) - 2026-07-04
 
 ### Bug Fixes

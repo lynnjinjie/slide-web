@@ -3,6 +3,7 @@ export interface Tab {
   url: string
   title: string
   host: string
+  faviconUrl?: string
 }
 
 export type Language = 'en' | 'zh'

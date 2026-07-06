@@ -161,8 +161,13 @@ function TabItem({
   onRemove: () => void
   onTooltipChange: (tooltip: FloatingTooltip | null) => void
 }) {
-  const favicon = `https://www.google.com/s2/favicons?domain=${tab.host}&sz=64`
+  const googleFavicon = `https://www.google.com/s2/favicons?domain=${tab.host}&sz=64`
+  const [favicon, setFavicon] = useState(tab.faviconUrl || googleFavicon)
   const hint = index < 9 ? `⌘${index + 1}` : undefined
+
+  useEffect(() => {
+    setFavicon(tab.faviconUrl || googleFavicon)
+  }, [googleFavicon, tab.faviconUrl])
 
   function showTooltip(target: HTMLElement) {
     const rect = target.getBoundingClientRect()
@@ -193,7 +198,15 @@ function TabItem({
           onBlur={() => onTooltipChange(null)}
           aria-current={isActive ? 'true' : undefined}
         >
-          <img className="rail__favicon" src={favicon} alt="" draggable={false} />
+          <img
+            className="rail__favicon"
+            src={favicon}
+            alt=""
+            draggable={false}
+            onError={() => {
+              if (favicon !== googleFavicon) setFavicon(googleFavicon)
+            }}
+          />
           <span className="rail__live" aria-hidden />
         </button>
         <button

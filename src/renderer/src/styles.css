@@ -969,9 +969,8 @@ button { font: inherit; }
   height: 36px;
   border-radius: 8px;
   background-color: rgba(255, 240, 220, 0.06);
-  background-size: 22px 22px;
-  background-position: center;
-  background-repeat: no-repeat;
+  object-fit: contain;
+  padding: 6px;
   border: 1px solid var(--hairline);
 }
 .preview-card__text {

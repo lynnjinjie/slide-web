@@ -3,6 +3,13 @@
 All notable changes to this project are documented here.
 This file follows the versioned format used by GitHub Releases and Conventional Commits-style sections.
 
+## [v1.0.4](https://github.com/lynnjinjie/slide-web/compare/v1.0.3...v1.0.4) - 2026-07-06
+
+### Bug Fixes
+
+- prefer site-provided favicons and keep Google favicon lookup only as a fallback
+- persist resolved tab favicon URLs and clear stale icons after cross-domain navigation
+
 ## [v1.0.3](https://github.com/lynnjinjie/slide-web/compare/v1.0.2...v1.0.3) - 2026-07-04
 
 ### Bug Fixes

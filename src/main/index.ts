@@ -858,6 +858,53 @@ function deElectronUA(view: WebContentsView) {
   view.webContents.setUserAgent(cleaned)
 }
 
+function faviconFromOrigin(pageUrl: string) {
+  try {
+    const u = new URL(pageUrl)
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null
+    return `${u.origin}/favicon.ico`
+  } catch {
+    return null
+  }
+}
+
+function chooseFaviconUrl(candidates: string[], pageUrl: string) {
+  for (const candidate of candidates) {
+    try {
+      const u = new URL(candidate, pageUrl)
+      if (u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'data:') {
+        return u.toString()
+      }
+    } catch {
+      /* try next candidate */
+    }
+  }
+  return faviconFromOrigin(pageUrl)
+}
+
+function updateTabFavicon(id: string, faviconUrl: string | null) {
+  if (!faviconUrl) return
+  const i = tabs.findIndex((x) => x.id === id)
+  if (i < 0 || tabs[i].faviconUrl === faviconUrl) return
+  tabs[i] = { ...tabs[i], faviconUrl }
+  saveStore()
+  uiView?.webContents.send('tabs:changed', tabs)
+}
+
+async function refreshTabFavicon(id: string, view: WebContentsView) {
+  const pageUrl = view.webContents.getURL()
+  if (!pageUrl) return
+  try {
+    const candidates = await view.webContents.executeJavaScript(
+      `Array.from(document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"], link[rel="mask-icon"]')).map((el) => el.href).filter(Boolean)`,
+      true,
+    )
+    updateTabFavicon(id, chooseFaviconUrl(Array.isArray(candidates) ? candidates : [], pageUrl))
+  } catch {
+    updateTabFavicon(id, faviconFromOrigin(pageUrl))
+  }
+}
+
 function createTabView(tab: Tab): WebContentsView {
   if (!win) throw new Error('window not ready')
   const ses = session.fromPartition(`persist:${tab.id}`)
@@ -898,7 +945,11 @@ function createTabView(tab: Tab): WebContentsView {
   })
   view.webContents.on('did-finish-load', () => {
     syncTabLocation(tab.id, view.webContents.getURL())
+    void refreshTabFavicon(tab.id, view)
     notifyNavigationStateForTab(tab.id)
+  })
+  view.webContents.on('page-favicon-updated', (_e, favicons) => {
+    updateTabFavicon(tab.id, chooseFaviconUrl(favicons, view.webContents.getURL()))
   })
   view.webContents.on('did-stop-loading', () => {
     notifyNavigationStateForTab(tab.id)
@@ -947,7 +998,12 @@ function syncTabLocation(id: string, rawUrl: string) {
   const nextHost = url.hostname
   if (tabs[i].url === nextUrl && tabs[i].host === nextHost) return
 
-  tabs[i] = { ...tabs[i], url: nextUrl, host: nextHost }
+  tabs[i] = {
+    ...tabs[i],
+    url: nextUrl,
+    host: nextHost,
+    faviconUrl: tabs[i].host === nextHost ? tabs[i].faviconUrl : undefined,
+  }
   saveStore()
   uiView?.webContents.send('tabs:changed', tabs)
 }

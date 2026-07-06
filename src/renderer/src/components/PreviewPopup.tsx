@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import type { PreviewInfo } from '../../../shared/types'
 import { useT } from '../i18n'
 
@@ -10,6 +11,14 @@ interface Props {
 
 export function PreviewPopup({ open, info, onPin, onClose }: Props) {
   const t = useT()
+  const googleFavicon = info ? `https://www.google.com/s2/favicons?domain=${info.host}&sz=128` : ''
+  const siteFavicon = info ? `https://${info.host}/favicon.ico` : ''
+  const [favicon, setFavicon] = useState(siteFavicon)
+
+  useEffect(() => {
+    setFavicon(siteFavicon)
+  }, [siteFavicon])
+
   return (
     <div className="preview-modal" data-open={open}>
       {info ? (
@@ -26,10 +35,13 @@ export function PreviewPopup({ open, info, onPin, onClose }: Props) {
           </div>
           <div className="preview-card__body">
             <div className="preview-card__head">
-              <div
+              <img
                 className="preview-favicon"
-                style={{
-                  backgroundImage: `url('https://www.google.com/s2/favicons?domain=${info.host}&sz=128')`,
+                src={favicon}
+                alt=""
+                draggable={false}
+                onError={() => {
+                  if (favicon !== googleFavicon) setFavicon(googleFavicon)
                 }}
               />
               <div className="preview-card__text">

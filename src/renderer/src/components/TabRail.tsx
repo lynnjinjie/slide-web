@@ -26,6 +26,15 @@ type FloatingTooltip = {
   top: number
 }
 
+function tooltipFromTarget(target: HTMLElement, text: string, hint?: string): FloatingTooltip {
+  const rect = target.getBoundingClientRect()
+  return {
+    text,
+    hint,
+    top: Math.round(rect.top + rect.height / 2),
+  }
+}
+
 export function TabRail({
   tabs,
   activeId,
@@ -46,6 +55,8 @@ export function TabRail({
   const t = useT()
   const [floatingTooltip, setFloatingTooltip] = useState<FloatingTooltip | null>(null)
   const settingsButtonRef = useRef<HTMLButtonElement>(null)
+  const backTooltip = t('rail.back')
+  const forwardTooltip = t('rail.forward')
 
   useEffect(() => {
     if (settingsActive) settingsButtonRef.current?.focus()
@@ -74,20 +85,34 @@ export function TabRail({
           className="rail__history-button"
           onClick={onBack}
           disabled={!canGoBack}
+          onPointerEnter={(e) => {
+            if (canGoBack) setFloatingTooltip(tooltipFromTarget(e.currentTarget, backTooltip))
+          }}
+          onPointerLeave={() => setFloatingTooltip(null)}
+          onFocus={(e) => {
+            if (canGoBack) setFloatingTooltip(tooltipFromTarget(e.currentTarget, backTooltip))
+          }}
+          onBlur={() => setFloatingTooltip(null)}
           aria-label={t('rail.back')}
         >
           <ChevronLeft />
-          <Tooltip text={t('rail.back')} />
         </button>
         <button
           type="button"
           className="rail__history-button"
           onClick={onForward}
           disabled={!canGoForward}
+          onPointerEnter={(e) => {
+            if (canGoForward) setFloatingTooltip(tooltipFromTarget(e.currentTarget, forwardTooltip))
+          }}
+          onPointerLeave={() => setFloatingTooltip(null)}
+          onFocus={(e) => {
+            if (canGoForward) setFloatingTooltip(tooltipFromTarget(e.currentTarget, forwardTooltip))
+          }}
+          onBlur={() => setFloatingTooltip(null)}
           aria-label={t('rail.forward')}
         >
           <ChevronRight />
-          <Tooltip text={t('rail.forward')} />
         </button>
       </div>
       {devMode ? (
@@ -170,12 +195,7 @@ function TabItem({
   }, [googleFavicon, tab.faviconUrl])
 
   function showTooltip(target: HTMLElement) {
-    const rect = target.getBoundingClientRect()
-    onTooltipChange({
-      text: tab.title,
-      hint,
-      top: Math.round(rect.top + rect.height / 2),
-    })
+    onTooltipChange(tooltipFromTarget(target, tab.title, hint))
   }
 
   return (

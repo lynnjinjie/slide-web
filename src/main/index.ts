@@ -26,6 +26,7 @@ import type {
   SearchEngine,
   Settings,
   Tab,
+  ThemePreference,
   UpdateState,
 } from '../shared/types'
 import {
@@ -59,11 +60,13 @@ let searchSession: { engine: SearchEngine; query: string } | null = null
 let searchPopupBounds: SearchBounds | null = null
 
 const DEFAULT_HOTKEY = 'CommandOrControl+Shift+\\'
+const DEFAULT_THEME: ThemePreference = 'dark'
 const DEFAULT_EDGE_WAKE_ENABLED = true
 const DEFAULT_AUTO_HIDE_ON_BLUR = false
 let settings: Settings = {
   toggleHotkey: DEFAULT_HOTKEY,
   language: 'en',
+  theme: DEFAULT_THEME,
   edgeWakeEnabled: DEFAULT_EDGE_WAKE_ENABLED,
   autoHideOnBlur: DEFAULT_AUTO_HIDE_ON_BLUR,
 }
@@ -158,6 +161,11 @@ async function loadStore() {
       const locale = app.getLocale().toLowerCase()
       settings.language = locale.startsWith('zh') ? 'zh' : 'en'
     }
+    if (isThemePreference(data.settings?.theme)) {
+      settings.theme = data.settings.theme
+    } else {
+      settings.theme = DEFAULT_THEME
+    }
     if (typeof data.settings?.edgeWakeEnabled === 'boolean') {
       settings.edgeWakeEnabled = data.settings.edgeWakeEnabled
     } else {
@@ -174,6 +182,10 @@ async function loadStore() {
     tabs = []
     activeTabId = null
   }
+}
+
+function isThemePreference(value: unknown): value is ThemePreference {
+  return value === 'light' || value === 'dark' || value === 'system'
 }
 
 function isOnAnyScreen(s: { x: number; y: number; width: number; height: number }) {
@@ -1426,6 +1438,11 @@ function setupIpc() {
     settings.language = language
     saveStore()
     refreshTrayMenu()
+  })
+  ipcMain.handle('settings:setTheme', (_e, theme: ThemePreference) => {
+    if (!isThemePreference(theme)) return
+    settings.theme = theme
+    saveStore()
   })
   ipcMain.handle('settings:setEdgeWakeEnabled', (_e, enabled: boolean) => {
     applyEdgeWake(Boolean(enabled))

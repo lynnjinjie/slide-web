@@ -3,6 +3,17 @@
 All notable changes to this project are documented here.
 This file follows the versioned format used by GitHub Releases and Conventional Commits-style sections.
 
+## [v1.0.5](https://github.com/lynnjinjie/slide-web/compare/v1.0.4...v1.0.5) - 2026-07-06
+
+### Features
+
+- add light, dark, and system theme switching in Settings
+- persist the selected theme and apply system appearance changes immediately
+
+### Bug Fixes
+
+- keep back and forward tooltips visible when they would otherwise be clipped by the sidebar
+
 ## [v1.0.4](https://github.com/lynnjinjie/slide-web/compare/v1.0.3...v1.0.4) - 2026-07-06
 
 ### Bug Fixes

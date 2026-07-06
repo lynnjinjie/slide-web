@@ -7,10 +7,12 @@ export interface Tab {
 }
 
 export type Language = 'en' | 'zh'
+export type ThemePreference = 'light' | 'dark' | 'system'
 
 export interface Settings {
   toggleHotkey: string // Electron accelerator string, e.g. "CommandOrControl+Shift+\\"
   language: Language
+  theme: ThemePreference
   edgeWakeEnabled: boolean
   autoHideOnBlur: boolean
 }
@@ -72,6 +74,7 @@ export interface SlideWebAPI {
   getSettings: () => Promise<Settings>
   setHotkey: (hotkey: string) => Promise<{ ok: boolean; error?: string }>
   setLanguage: (language: Language) => Promise<void>
+  setTheme: (theme: ThemePreference) => Promise<void>
   setEdgeWakeEnabled: (enabled: boolean) => Promise<void>
   setAutoHideOnBlur: (enabled: boolean) => Promise<void>
   startSearch: (engine: SearchEngine, query: string) => Promise<void>

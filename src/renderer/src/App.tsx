@@ -12,6 +12,7 @@ import type {
   SearchEngine,
   Settings,
   Tab,
+  ThemePreference,
   UpdateState,
 } from '../../shared/types'
 
@@ -31,6 +32,7 @@ export default function App() {
   const [preview, setPreview] = useState<PreviewInfo | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [removeTarget, setRemoveTarget] = useState<Tab | null>(null)
+  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(() => getSystemTheme())
 
   useEffect(() => {
     let cancelled = false
@@ -79,6 +81,14 @@ export default function App() {
       off6()
       off7()
     }
+  }, [])
+
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const sync = () => setSystemTheme(media.matches ? 'dark' : 'light')
+    sync()
+    media.addEventListener('change', sync)
+    return () => media.removeEventListener('change', sync)
   }, [])
 
   const openAddBar = useCallback(() => {
@@ -282,10 +292,12 @@ export default function App() {
   ])
 
   const isEmpty = tabs.length === 0
+  const themePreference: ThemePreference = settings?.theme ?? 'dark'
+  const effectiveTheme = themePreference === 'system' ? systemTheme : themePreference
 
   return (
     <I18nProvider lang={settings?.language ?? 'en'}>
-    <div className={`window${removeTarget ? ' window--dialog' : ''}`}>
+    <div className={`window${removeTarget ? ' window--dialog' : ''}`} data-theme={effectiveTheme}>
       <TabRail
         tabs={tabs}
         activeId={activeId}
@@ -342,6 +354,11 @@ export default function App() {
     </div>
     </I18nProvider>
   )
+}
+
+function getSystemTheme(): 'light' | 'dark' {
+  if (typeof window === 'undefined') return 'dark'
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 function RemoveTabDialog({

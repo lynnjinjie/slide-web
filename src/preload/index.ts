@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { NavigationState, PreviewInfo, SlideWebAPI, Tab, UpdateState } from '../shared/types'
+import type { NavigationState, PreviewInfo, SlideWebAPI, Tab, ThemePreference, UpdateState } from '../shared/types'
 
 const api: SlideWebAPI = {
   getTabs: () => ipcRenderer.invoke('tabs:get'),
@@ -17,6 +17,7 @@ const api: SlideWebAPI = {
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setHotkey: (hotkey) => ipcRenderer.invoke('settings:setHotkey', hotkey),
   setLanguage: (language) => ipcRenderer.invoke('settings:setLanguage', language),
+  setTheme: (theme: ThemePreference) => ipcRenderer.invoke('settings:setTheme', theme),
   setEdgeWakeEnabled: (enabled) => ipcRenderer.invoke('settings:setEdgeWakeEnabled', enabled),
   setAutoHideOnBlur: (enabled) => ipcRenderer.invoke('settings:setAutoHideOnBlur', enabled),
   startSearch: (engine, query) => ipcRenderer.invoke('search:start', { engine, query }),

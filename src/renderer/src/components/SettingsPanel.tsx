@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Language, Settings, UpdateState } from '../../../shared/types'
+import type { Language, Settings, ThemePreference, UpdateState } from '../../../shared/types'
 import { useT } from '../i18n'
 
 interface Props {
@@ -18,6 +18,7 @@ const DEFAULT_HOTKEY = 'CommandOrControl+Shift+\\'
 const DEFAULT_SETTINGS: Settings = {
   toggleHotkey: DEFAULT_HOTKEY,
   language: 'en',
+  theme: 'dark',
   edgeWakeEnabled: true,
   autoHideOnBlur: false,
 }
@@ -81,6 +82,14 @@ export function SettingsPanel({
     [onChange, settings],
   )
 
+  const applyTheme = useCallback(
+    async (theme: ThemePreference) => {
+      await window.slideweb.setTheme(theme)
+      onChange({ ...(settings ?? DEFAULT_SETTINGS), theme })
+    },
+    [onChange, settings],
+  )
+
   const applyEdgeWake = useCallback(
     async (enabled: boolean) => {
       await window.slideweb.setEdgeWakeEnabled(enabled)
@@ -98,6 +107,7 @@ export function SettingsPanel({
   )
 
   const currentLang: Language = settings?.language ?? 'en'
+  const currentTheme: ThemePreference = settings?.theme ?? DEFAULT_SETTINGS.theme
   const edgeWakeEnabled = settings?.edgeWakeEnabled ?? DEFAULT_SETTINGS.edgeWakeEnabled
   const autoHideOnBlur = settings?.autoHideOnBlur ?? DEFAULT_SETTINGS.autoHideOnBlur
   const updateStatus = updateState?.status ?? 'idle'
@@ -136,6 +146,38 @@ export function SettingsPanel({
           {t('settings.reset')}
         </button>
         {error ? <p className="settings__error">{error}</p> : null}
+      </div>
+
+      <div className="settings__field">
+        <div className="settings__row">
+          <div className="settings__label">
+            <span className="settings__label-name">{t('settings.theme.name')}</span>
+            <span className="settings__label-desc">{t('settings.theme.desc')}</span>
+          </div>
+          <div className="settings__seg">
+            <button
+              type="button"
+              className={currentTheme === 'light' ? 'on' : ''}
+              onClick={() => applyTheme('light')}
+            >
+              {t('settings.theme.light')}
+            </button>
+            <button
+              type="button"
+              className={currentTheme === 'dark' ? 'on' : ''}
+              onClick={() => applyTheme('dark')}
+            >
+              {t('settings.theme.dark')}
+            </button>
+            <button
+              type="button"
+              className={currentTheme === 'system' ? 'on' : ''}
+              onClick={() => applyTheme('system')}
+            >
+              {t('settings.theme.system')}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="settings__field">

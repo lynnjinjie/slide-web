@@ -3,6 +3,16 @@
 All notable changes to this project are documented here.
 This file follows the versioned format used by GitHub Releases and Conventional Commits-style sections.
 
+## Unreleased
+
+### Features
+
+- add a native tab context menu with reload and close actions
+
+### Bug Fixes
+
+- keep the tab close button fully visible without reintroducing horizontal sidebar scrolling
+
 ## [v1.0.5](https://github.com/lynnjinjie/slide-web/compare/v1.0.4...v1.0.5) - 2026-07-06
 
 ### Features

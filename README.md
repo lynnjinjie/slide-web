@@ -12,11 +12,15 @@ sidebar, and search with Google or Baidu before pinning a result.
 
 - Slide-over Electron window with a narrow tab rail.
 - Persistent web tabs with favicon-based sidebar icons.
+- Back and forward navigation for the active page.
+- Native tab context menu with reload and close actions.
 - Add URLs directly, or search first and pin a selected result.
 - Search results stay inside the add popup, including verification and captcha
   flows.
 - Settings update immediately without a separate save step.
+- Light, dark, and system-following themes.
 - Configurable global show/hide shortcut.
+- Edge wake, hide-on-blur, tray controls, and in-app update checks.
 - GitHub Actions release workflow for macOS and Windows packages.
 
 ## Tech Stack
@@ -71,11 +75,11 @@ docs/           Release and signing notes
 ## Release Builds
 
 Releases are built by `.github/workflows/release.yml` when a version tag such as
-`v1.0.4` is pushed, and can also be started manually with `workflow_dispatch`.
+`v1.0.5` is pushed, and can also be started manually with `workflow_dispatch`.
 
 The workflow builds macOS and Windows artifacts, uploads them as workflow
 artifacts, and creates a GitHub Release named after the package version, such as
-`v1.0.4`.
+`v1.0.5`.
 
 macOS packages can be unsigned, but public distribution should use Developer ID
 signing and Apple notarization. See `docs/release.md` for the required GitHub

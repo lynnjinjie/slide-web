@@ -1059,6 +1059,29 @@ function removeTab(id: string) {
   notifyNavigationState()
 }
 
+function reloadTab(id: string) {
+  const view = tabViews.get(id)
+  if (!view || view.webContents.isDestroyed()) return
+  view.webContents.reload()
+}
+
+function showTabMenu(id: string) {
+  if (!tabViews.has(id)) return
+  const isZh = settings.language === 'zh'
+  const menu = Menu.buildFromTemplate([
+    {
+      label: isZh ? '刷新' : 'Reload',
+      click: () => reloadTab(id),
+    },
+    { type: 'separator' },
+    {
+      label: isZh ? '关闭' : 'Close',
+      click: () => uiView?.webContents.send('tabs:remove-requested', id),
+    },
+  ])
+  menu.popup()
+}
+
 function setActiveTab(id: string | null) {
   if (id !== null && !tabViews.has(id)) return
   // Picking a real tab implicitly exits any search session
@@ -1425,6 +1448,7 @@ function setupIpc() {
   ipcMain.handle('navigation:back', () => navigateHistory('back'))
   ipcMain.handle('navigation:forward', () => navigateHistory('forward'))
   ipcMain.handle('tabs:add', (_e, input: { url: string; title?: string }) => addTab(input))
+  ipcMain.handle('tabs:showMenu', (_e, id: string) => showTabMenu(id))
   ipcMain.handle('tabs:remove', (_e, id: string) => removeTab(id))
   ipcMain.handle('tabs:select', (_e, id: string) => setActiveTab(id))
   ipcMain.handle('addbar:open', () => setAddbar(true))

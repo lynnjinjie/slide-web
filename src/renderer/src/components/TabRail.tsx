@@ -13,6 +13,7 @@ interface Props {
   onAdd: () => void
   onBack: () => void
   onForward: () => void
+  onTabMenu: (id: string) => void
   onRemove: (tab: Tab) => void
   onHide: () => void
   onSettings: () => void
@@ -46,6 +47,7 @@ export function TabRail({
   onAdd,
   onBack,
   onForward,
+  onTabMenu,
   onRemove,
   onHide,
   onSettings,
@@ -136,6 +138,10 @@ export function TabRail({
               setFloatingTooltip(null)
               onRemove(tab)
             }}
+            onTabMenu={() => {
+              setFloatingTooltip(null)
+              onTabMenu(tab.id)
+            }}
             onTooltipChange={setFloatingTooltip}
           />
         ))}
@@ -177,6 +183,7 @@ function TabItem({
   isActive,
   onSelect,
   onRemove,
+  onTabMenu,
   onTooltipChange,
 }: {
   tab: Tab
@@ -184,6 +191,7 @@ function TabItem({
   isActive: boolean
   onSelect: () => void
   onRemove: () => void
+  onTabMenu: () => void
   onTooltipChange: (tooltip: FloatingTooltip | null) => void
 }) {
   const googleFavicon = `https://www.google.com/s2/favicons?domain=${tab.host}&sz=64`
@@ -204,7 +212,7 @@ function TabItem({
       onContextMenu={(e) => {
         e.preventDefault()
         onTooltipChange(null)
-        onRemove()
+        onTabMenu()
       }}
     >
       <span className="rail__indicator" aria-hidden />

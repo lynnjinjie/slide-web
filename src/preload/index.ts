@@ -8,6 +8,7 @@ const api: SlideWebAPI = {
   goBack: () => ipcRenderer.invoke('navigation:back'),
   goForward: () => ipcRenderer.invoke('navigation:forward'),
   addTab: (input) => ipcRenderer.invoke('tabs:add', input),
+  showTabMenu: (id) => ipcRenderer.invoke('tabs:showMenu', id),
   removeTab: (id) => ipcRenderer.invoke('tabs:remove', id),
   selectTab: (id) => ipcRenderer.invoke('tabs:select', id),
   openAddbar: () => ipcRenderer.invoke('addbar:open'),
@@ -38,6 +39,11 @@ const api: SlideWebAPI = {
     const handler = (_e: Electron.IpcRendererEvent, t: Tab[]) => cb(t)
     ipcRenderer.on('tabs:changed', handler)
     return () => ipcRenderer.off('tabs:changed', handler)
+  },
+  onTabRemoveRequested: (cb) => {
+    const handler = (_e: Electron.IpcRendererEvent, id: string) => cb(id)
+    ipcRenderer.on('tabs:remove-requested', handler)
+    return () => ipcRenderer.off('tabs:remove-requested', handler)
   },
   onActiveTabChanged: (cb) => {
     const handler = (_e: Electron.IpcRendererEvent, id: string | null) => cb(id)

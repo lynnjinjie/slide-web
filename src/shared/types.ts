@@ -65,6 +65,7 @@ export interface SlideWebAPI {
   goBack: () => Promise<void>
   goForward: () => Promise<void>
   addTab: (input: { url: string; title?: string }) => Promise<Tab>
+  showTabMenu: (id: string) => Promise<void>
   removeTab: (id: string) => Promise<void>
   selectTab: (id: string) => Promise<void>
   openAddbar: () => Promise<void>
@@ -92,6 +93,7 @@ export interface SlideWebAPI {
   hide: () => Promise<void>
   quit: () => Promise<void>
   onTabsChanged: (cb: (tabs: Tab[]) => void) => () => void
+  onTabRemoveRequested: (cb: (id: string) => void) => () => void
   onActiveTabChanged: (cb: (id: string | null) => void) => () => void
   onNavigationChanged: (cb: (state: NavigationState) => void) => () => void
   onSettingsShow: (cb: () => void) => () => void

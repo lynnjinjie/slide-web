@@ -144,6 +144,13 @@ export default function App() {
     window.slideweb.openDialog()
   }, [])
 
+  useEffect(() => {
+    return window.slideweb.onTabRemoveRequested((id) => {
+      const tab = tabs.find((item) => item.id === id)
+      if (tab) requestRemoveTab(tab)
+    })
+  }, [requestRemoveTab, tabs])
+
   const confirmRemoveTab = useCallback(() => {
     if (!removeTarget) return
     window.slideweb.removeTab(removeTarget.id)
@@ -309,6 +316,7 @@ export default function App() {
         onAdd={openAddBar}
         onBack={goBack}
         onForward={goForward}
+        onTabMenu={(id) => window.slideweb.showTabMenu(id)}
         onRemove={requestRemoveTab}
         onHide={() => window.slideweb.hide()}
         onSettings={openSettings}

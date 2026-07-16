@@ -75,11 +75,11 @@ docs/           Release and signing notes
 ## Release Builds
 
 Releases are built by `.github/workflows/release.yml` when a version tag such as
-`v1.0.5` is pushed, and can also be started manually with `workflow_dispatch`.
+`v1.0.6` is pushed, and can also be started manually with `workflow_dispatch`.
 
 The workflow builds macOS and Windows artifacts, uploads them as workflow
 artifacts, and creates a GitHub Release named after the package version, such as
-`v1.0.5`.
+`v1.0.6`.
 
 macOS packages can be unsigned, but public distribution should use Developer ID
 signing and Apple notarization. See `docs/release.md` for the required GitHub

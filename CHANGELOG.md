@@ -3,7 +3,7 @@
 All notable changes to this project are documented here.
 This file follows the versioned format used by GitHub Releases and Conventional Commits-style sections.
 
-## Unreleased
+## [v1.0.6](https://github.com/lynnjinjie/slide-web/compare/v1.0.5...v1.0.6) - 2026-07-16
 
 ### Features
 
